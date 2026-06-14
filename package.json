@@ -1,0 +1,18 @@
+{
+  "name": "agentops-control-tower",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm --filter @tower/web dev",
+    "dev:api": "uvicorn --app-dir apps/api main:app --reload --host 127.0.0.1 --port 8000",
+    "build": "pnpm --filter @tower/web build",
+    "lint": "pnpm --filter @tower/web lint",
+    "typecheck": "pnpm --filter @tower/web typecheck",
+    "test:api": "python -m pytest apps/api/tests"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.10"
+    }
+  }
+}

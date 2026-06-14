@@ -94,7 +94,7 @@ NEXT_PUBLIC_API_BASE_URL
 
 Never commit `.env` or real credentials. `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to browser code.
 
-### Live Band coordinator
+### Live Band agents
 
 `BAND_MODE=mock` keeps everything in-process. To make the `@ATower Coordinator`
 reply to room mentions, set `BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`,
@@ -103,6 +103,21 @@ remote agent as a participant in the room. `docker compose up --build` starts th
 `band-agent` service automatically; tail it with `docker compose logs -f band-agent`.
 HR workflow execution is still unimplemented (`/workflows/{id}/run` returns 501) —
 the coordinator says so rather than fabricating results. See `docs/BAND_INTEGRATION.md`.
+
+The same `band-agent` service supervises all registered specialist roles:
+
+```text
+Workflow Router        RAG Retriever          Policy Guardian
+Final Decision         Resume/JD Matcher      Bias/Safety Reviewer
+Interview Planner      Lead Qualifier         Engineering Reviewer
+```
+
+Create each one as a separate **Remote Agent** in Band, then put its UUID and API
+key in the matching `BAND_<ROLE>_AGENT_ID` and `BAND_<ROLE>_API_KEY` variables
+listed in `.env.example`. Add each agent to the room where it should operate.
+Roles without credentials are skipped; one agent never impersonates another.
+Band sends a message to a remote agent only when that participant is explicitly
+mentioned.
 
 ## Local Development
 
@@ -183,7 +198,7 @@ Available now:
 - Typed backend and frontend contracts
 - Agent and workflow registries
 - Mock Band and LLM adapter boundaries (in-process)
-- Live Band coordinator agent (`band-agent`, `BAND_MODE=sdk`) that joins a room and replies to mentions via the Band SDK + Featherless
+- Live Band SDK supervisor for the coordinator and nine specialist roles
 - Parser, chunker, embedding, and retrieval boundaries
 - Supabase schema, pgvector search function, and seed catalog
 - Dashboard, workflow, agent, knowledge, and report route shells
@@ -193,7 +208,7 @@ Not implemented yet:
 - Workflow persistence and execution
 - Artifact upload and indexing
 - Live Supabase calls, and live AIML/Featherless calls from the API workflow path
-- In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` coordinator
+- In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` supervisor
 - HR (and other) workflow execution from the coordinator or the API
 - Final decision packet generation
 

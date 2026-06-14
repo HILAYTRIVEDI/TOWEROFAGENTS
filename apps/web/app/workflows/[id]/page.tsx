@@ -1,3 +1,4 @@
+import { DocumentUpload } from "@/components/document-upload";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 
@@ -15,9 +16,11 @@ export default async function WorkflowDetailPage({
         title="Workflow detail"
         description="This route is reserved for document status, Band messages, agent findings, and execution progress."
       />
-      <EmptyState title="Waiting for persistence">
-        The base scaffold does not invent workflow data. This page will load the
-        typed workflow contract when the API implementation begins.
+      <DocumentUpload workflowId={id} />
+      <EmptyState title="Run output waiting for persistence">
+        The base scaffold does not invent workflow data. Band messages, agent
+        findings, and execution progress will load from the typed workflow
+        contract once run endpoints are implemented.
       </EmptyState>
     </>
   );

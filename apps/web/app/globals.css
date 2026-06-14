@@ -446,6 +446,145 @@ h3 {
   border-color: #dca9a4;
 }
 
+.dashboard-tabs {
+  display: grid;
+  gap: 32px;
+}
+
+.dashboard-tabs > [role="tabpanel"] {
+  display: grid;
+  gap: 48px;
+}
+
+.tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(255, 253, 247, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.tab-trigger {
+  padding: 10px 18px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.tab-trigger:hover,
+.tab-trigger:focus-visible {
+  color: var(--green-dark);
+  background: #e8efdc;
+}
+
+.tab-trigger.active {
+  color: white;
+  background: var(--green-dark);
+}
+
+.workflow-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: rgba(255, 253, 247, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.workflow-row-title {
+  margin: 0 0 4px;
+  font-weight: 750;
+}
+
+.workflow-row-title a {
+  text-decoration: none;
+}
+
+.workflow-row-title a:hover,
+.workflow-row-title a:focus-visible {
+  text-decoration: underline;
+}
+
+.workflow-row-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #e8efdc;
+  color: var(--green-dark);
+}
+
+.status-badge.status-failed {
+  color: var(--red);
+  background: #f6e3e0;
+}
+
+.status-badge.status-completed {
+  color: var(--green-dark);
+  background: var(--lime);
+}
+
+.status-badge.status-awaiting_review,
+.status-badge.status-running,
+.status-badge.status-indexing {
+  color: #7a5b00;
+  background: #f5ebcf;
+}
+
+.status-badge.status-draft,
+.status-badge.status-ready {
+  color: var(--muted);
+  background: #ebe9df;
+}
+
+.domain-count-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.domain-count-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(255, 253, 247, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.domain-count-list strong {
+  font-size: 1.1rem;
+}
+
 @media (max-width: 880px) {
   .sidebar {
     position: static;

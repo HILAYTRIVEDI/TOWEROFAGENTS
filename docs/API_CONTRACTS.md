@@ -19,6 +19,8 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 
 Workflow create/list/detail persistence is functional through Supabase. Calling `GET /workflows`
 without `org_id` returns an empty list to prevent accidental cross-organization disclosure.
+The frontend temporarily reads this scope from `NEXT_PUBLIC_DEFAULT_ORG_ID`;
+authenticated profile-derived scope will replace it when auth is implemented.
 
 `POST /workflows/{workflow_id}/documents` is a `multipart/form-data` request with a `doc_type`
 field (`resume|jd|policy|crm|code|other`) and a `file` part. It uploads the file to the private

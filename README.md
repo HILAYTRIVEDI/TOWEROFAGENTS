@@ -90,9 +90,12 @@ BAND_DEFAULT_ROOM_ID
 THENVOI_WS_URL
 THENVOI_REST_URL
 NEXT_PUBLIC_API_BASE_URL
+NEXT_PUBLIC_DEFAULT_ORG_ID
 ```
 
 Never commit `.env` or real credentials. `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to browser code.
+`NEXT_PUBLIC_DEFAULT_ORG_ID` selects the temporary organization scope used by
+the dashboard until Supabase authentication supplies it from the signed-in user.
 
 ### Live Band agents
 

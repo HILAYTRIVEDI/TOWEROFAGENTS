@@ -1,43 +1,32 @@
 import { PageHeader } from "@/components/page-header";
+import { listAgents } from "@/lib/api";
 
-const AGENT_GROUPS = [
-  {
-    category: "Platform",
-    names: [
-      "Workflow Router",
-      "RAG Retriever",
-      "Policy Guardian",
-      "Final Decision Agent",
-    ],
-  },
-  {
-    category: "HR specialists",
-    names: ["Resume/JD Matcher", "Bias/Safety Reviewer", "Interview Planner"],
-  },
-  {
-    category: "Breadth specialists",
-    names: ["Lead Qualifier", "Engineering Reviewer"],
-  },
-] as const;
+export const dynamic = "force-dynamic";
 
-export default function AgentsPage() {
+export default async function AgentsPage() {
+  const agents = await listAgents();
+  const groups = new Map<string, typeof agents>();
+  for (const agent of agents) {
+    groups.set(agent.category, [...(groups.get(agent.category) ?? []), agent]);
+  }
+
   return (
     <>
       <PageHeader
         eyebrow="Agent registry"
         title="Specialists with explicit jobs."
-        description="The registry mirrors the backend scaffold. Execution, metrics, and live provider status arrive during product development."
+        description="This registry is loaded directly from the FastAPI agent catalog."
       />
       <div className="agent-grid">
-        {AGENT_GROUPS.map((group) => (
-          <section className="agent-group" key={group.category}>
-            <p className="eyebrow">{group.category}</p>
-            {group.names.map((name) => (
-              <article key={name}>
-                <span className="agent-avatar">{name.charAt(0)}</span>
+        {[...groups.entries()].map(([category, categoryAgents]) => (
+          <section className="agent-group" key={category}>
+            <p className="eyebrow">{category}</p>
+            {categoryAgents.map((agent) => (
+              <article key={agent.slug}>
+                <span className="agent-avatar">{agent.name.charAt(0)}</span>
                 <div>
-                  <h2>{name}</h2>
-                  <p>Contract ready · execution pending</p>
+                  <h2>{agent.name}</h2>
+                  <p>{agent.description}</p>
                 </div>
               </article>
             ))}
@@ -47,4 +36,3 @@ export default function AgentsPage() {
     </>
   );
 }
-

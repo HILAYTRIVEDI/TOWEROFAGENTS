@@ -215,6 +215,8 @@ h3 {
 .metric-card,
 .template-card,
 .agent-group,
+.detail-card,
+.upload-form,
 .workflow-form,
 .empty-state {
   background: rgba(255, 253, 247, 0.86);
@@ -332,6 +334,67 @@ h3 {
   gap: 24px;
   max-width: 820px;
   padding: 30px;
+}
+
+.upload-form {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.upload-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--green-dark);
+  font-weight: 750;
+}
+
+.upload-form input,
+.upload-form select {
+  width: 100%;
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  margin-bottom: 24px;
+}
+
+.detail-card {
+  padding: 26px;
+}
+
+.detail-card dl {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+}
+
+.detail-card dl div {
+  display: grid;
+  gap: 5px;
+}
+
+.detail-card dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.detail-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.notice.success {
+  color: var(--green-dark);
+  background: #e8efdc;
 }
 
 .workflow-form label,

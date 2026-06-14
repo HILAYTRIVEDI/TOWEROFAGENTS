@@ -31,6 +31,22 @@ export interface AgentDescriptor {
   description: string;
 }
 
+export interface DocumentRecord {
+  id: string;
+  workflow_id: string;
+  filename: string;
+  mime_type?: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface HealthStatus {
+  service: string;
+  status: string;
+  environment: string;
+  integrations: Record<string, string>;
+}
+
 export interface WorkflowReport {
   id: string;
   workflow_id: string;
@@ -44,4 +60,3 @@ export interface WorkflowReport {
   evidence_chunk_ids: string[];
   requires_human_review: boolean;
 }
-

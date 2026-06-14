@@ -1,30 +1,20 @@
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { ApiError, getWorkflowReport } from "@/lib/api";
 
 export default async function ReportPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ state?: string }>;
 }) {
-  const [{ id }, { state }] = await Promise.all([params, searchParams]);
-
-  if (state === "loading") {
-    return (
-      <p className="notice" role="status">
-        Loading report…
-      </p>
-    );
-  }
-
-  if (state === "error") {
-    return (
-      <p className="notice error" role="alert">
-        The report could not be loaded.
-      </p>
-    );
-  }
+  const { id } = await params;
+  const result = await getWorkflowReport(id)
+    .then((report) => ({ report, error: null, status: 200 }))
+    .catch((error) => ({
+      report: null,
+      error: error instanceof Error ? error.message : "Report loading failed",
+      status: error instanceof ApiError ? error.status : 500,
+    }));
 
   return (
     <>
@@ -33,11 +23,17 @@ export default async function ReportPage({
         title="Decision packet"
         description="Reports will combine recommendations, evidence, fairness notes, interview questions, and human-review status."
       />
-      <EmptyState title="Report not generated">
-        This route handles loading and error states without fabricating a
-        successful report. Report generation belongs to the product phase.
-      </EmptyState>
+      {result.report ? (
+        <section className="detail-card">
+          <p className="eyebrow">{result.report.recommendation}</p>
+          <h2>{result.report.summary}</h2>
+          <p>Human review required: {result.report.requires_human_review ? "Yes" : "No"}</p>
+        </section>
+      ) : (
+        <EmptyState title={result.status === 501 ? "Report generation is not implemented" : "Report unavailable"}>
+          {result.error}. No successful report is fabricated.
+        </EmptyState>
+      )}
     </>
   );
 }
-

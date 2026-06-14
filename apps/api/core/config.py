@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
+    # Private Supabase Storage bucket for uploaded workflow artifacts. Created
+    # by migration 003. Server-side (service-role) uploads only.
+    documents_bucket: str = "workflow-documents"
+    # Reject uploads larger than this at the trust boundary. Fixed cap; not yet
+    # driven by per-org plan or quota.
+    max_upload_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
 
     aiml_api_key: str | None = None
     aiml_default_model: str | None = None

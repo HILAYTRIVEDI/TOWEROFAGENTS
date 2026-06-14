@@ -10,5 +10,5 @@ Supabase migrations define:
 
 All business records carry organization or workflow scope. `document_chunks.embedding` uses `vector(1536)`. `EMBEDDING_DIMENSIONS` and the selected embedding model must remain at 1536 unless migration `001_init.sql` and vector search function `002_vector_search.sql` are changed together.
 
-The bootstrap establishes tables, indexes, update triggers, basic row-level security, and `match_document_chunks`. Storage bucket policies and production auth policy hardening belong to the data implementation phase.
+The bootstrap establishes tables, indexes, update triggers, basic row-level security, and `match_document_chunks`. Migration `003_documents_storage.sql` creates the private `workflow-documents` Storage bucket used by the document upload endpoint; uploads run server-side with the service role key (which bypasses storage RLS), so no public storage policy is granted. Per-role storage RLS policies and production auth policy hardening belong to the data implementation phase.
 

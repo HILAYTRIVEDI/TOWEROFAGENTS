@@ -10,7 +10,7 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 | `POST` | `/workflows` | Create a workflow |
 | `GET` | `/workflows?org_id={org_id}` | List organization-scoped workflows |
 | `GET` | `/workflows/{workflow_id}` | Workflow detail |
-| `POST` | `/workflows/{workflow_id}/documents` | Upload artifact metadata/file |
+| `POST` | `/workflows/{workflow_id}/documents` | Upload an artifact file to private storage |
 | `POST` | `/workflows/{workflow_id}/index` | Parse, chunk, embed, and index artifacts |
 | `POST` | `/workflows/{workflow_id}/run` | Start orchestration |
 | `GET` | `/workflows/{workflow_id}/report` | Get report for workflow |
@@ -19,7 +19,15 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 
 Workflow create/list/detail persistence is functional through Supabase. Calling `GET /workflows`
 without `org_id` returns an empty list to prevent accidental cross-organization disclosure.
-Index, run, and report generation endpoints still return `501 Not Implemented`.
+
+`POST /workflows/{workflow_id}/documents` is a `multipart/form-data` request with a `doc_type`
+field (`resume|jd|policy|crm|code|other`) and a `file` part. It uploads the file to the private
+`workflow-documents` Supabase Storage bucket and inserts a `documents` row scoped to the workflow's
+organization, returning `201` with `DocumentRead` (`id`, `workflow_id`, `filename`, `mime_type`,
+`status`, `created_at`). It returns `422` for an unknown `doc_type` or empty file, `413` above the
+configured `MAX_UPLOAD_BYTES`, `404` for an unknown workflow, and `503` when Supabase is
+unconfigured. Parsing, chunking, and embedding are not performed here — the row lands in `uploaded`
+status. Index, run, and report generation endpoints still return `501 Not Implemented`.
 
 ## Core Shapes
 

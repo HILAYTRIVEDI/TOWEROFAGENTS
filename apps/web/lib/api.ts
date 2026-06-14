@@ -1,5 +1,7 @@
 import type {
   AgentDescriptor,
+  DocumentRead,
+  DocumentType,
   Workflow,
   WorkflowCreate,
   WorkflowReport,
@@ -52,5 +54,31 @@ export function getWorkflowReport(workflowId: string): Promise<WorkflowReport> {
 
 export function getReport(reportId: string): Promise<WorkflowReport> {
   return apiRequest(`/reports/${reportId}`, { cache: "no-store" });
+}
+
+// Multipart upload: do NOT set Content-Type here. The browser must add the
+// multipart boundary itself, so we cannot reuse apiRequest (which forces JSON).
+export async function uploadDocument(
+  workflowId: string,
+  file: File,
+  docType: DocumentType
+): Promise<DocumentRead> {
+  const form = new FormData();
+  form.append("doc_type", docType);
+  form.append("file", file);
+
+  const response = await fetch(
+    `${API_BASE_URL}/workflows/${workflowId}/documents`,
+    { method: "POST", body: form }
+  );
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { detail?: string }
+      | null;
+    throw new Error(body?.detail ?? `Upload failed (${response.status})`);
+  }
+
+  return (await response.json()) as DocumentRead;
 }
 

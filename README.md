@@ -187,11 +187,13 @@ Available now:
 - Parser, chunker, embedding, and retrieval boundaries
 - Supabase schema, pgvector search function, and seed catalog
 - Dashboard, workflow, agent, knowledge, and report route shells
+- Document upload from the workflow detail page to a private Supabase Storage
+  bucket (files land in `uploaded` status; not yet parsed or indexed)
 
 Not implemented yet:
 
 - Workflow persistence and execution
-- Artifact upload and indexing
+- Artifact parsing, chunking, embedding, and indexing (upload only, so far)
 - Live Supabase calls, and live AIML/Featherless calls from the API workflow path
 - In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` coordinator
 - HR (and other) workflow execution from the coordinator or the API

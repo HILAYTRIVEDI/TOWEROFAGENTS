@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     aiml_default_model: str | None = None
     featherless_api_key: str | None = None
     featherless_default_model: str | None = None
+    featherless_base_url: str = "https://api.featherless.ai/v1"
+    # Tool-capable model for the live Band coordinator. Defaults to
+    # featherless_default_model when unset. The Band LangGraph adapter sends
+    # replies via platform tools, so this model MUST support OpenAI tool calling.
+    featherless_tool_model: str | None = None
     llm_provider: str = "mock"
 
     embedding_provider: str = "mock"
@@ -35,6 +40,10 @@ class Settings(BaseSettings):
     band_api_key: str | None = None
     band_agent_id: str | None = None
     band_default_room_id: str | None = None
+    # Optional Band platform endpoint overrides. The coordinator falls back to
+    # Band's public defaults when these are unset.
+    thenvoi_ws_url: str | None = None
+    thenvoi_rest_url: str | None = None
 
     @property
     def cors_origins(self) -> list[str]:

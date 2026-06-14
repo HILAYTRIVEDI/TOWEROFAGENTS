@@ -77,6 +77,8 @@ AIML_API_KEY
 AIML_DEFAULT_MODEL
 FEATHERLESS_API_KEY
 FEATHERLESS_DEFAULT_MODEL
+FEATHERLESS_BASE_URL
+FEATHERLESS_TOOL_MODEL
 LLM_PROVIDER
 EMBEDDING_PROVIDER
 EMBEDDING_MODEL
@@ -84,10 +86,23 @@ EMBEDDING_DIMENSIONS
 BAND_MODE
 BAND_API_KEY
 BAND_AGENT_ID
+BAND_DEFAULT_ROOM_ID
+THENVOI_WS_URL
+THENVOI_REST_URL
 NEXT_PUBLIC_API_BASE_URL
 ```
 
 Never commit `.env` or real credentials. `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to browser code.
+
+### Live Band coordinator
+
+`BAND_MODE=mock` keeps everything in-process. To make the `@ATower Coordinator`
+reply to room mentions, set `BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`,
+`FEATHERLESS_API_KEY`, and a tool-capable `FEATHERLESS_TOOL_MODEL`, then add the
+remote agent as a participant in the room. `docker compose up --build` starts the
+`band-agent` service automatically; tail it with `docker compose logs -f band-agent`.
+HR workflow execution is still unimplemented (`/workflows/{id}/run` returns 501) —
+the coordinator says so rather than fabricating results. See `docs/BAND_INTEGRATION.md`.
 
 ## Local Development
 
@@ -167,7 +182,8 @@ Available now:
 - API health endpoint and OpenAPI documentation
 - Typed backend and frontend contracts
 - Agent and workflow registries
-- Mock Band and LLM adapter boundaries
+- Mock Band and LLM adapter boundaries (in-process)
+- Live Band coordinator agent (`band-agent`, `BAND_MODE=sdk`) that joins a room and replies to mentions via the Band SDK + Featherless
 - Parser, chunker, embedding, and retrieval boundaries
 - Supabase schema, pgvector search function, and seed catalog
 - Dashboard, workflow, agent, knowledge, and report route shells
@@ -176,7 +192,9 @@ Not implemented yet:
 
 - Workflow persistence and execution
 - Artifact upload and indexing
-- Live Supabase, Band, AIML API, or Featherless calls
+- Live Supabase calls, and live AIML/Featherless calls from the API workflow path
+- In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` coordinator
+- HR (and other) workflow execution from the coordinator or the API
 - Final decision packet generation
 
 Unfinished product endpoints return `501 Not Implemented` rather than fabricated data.

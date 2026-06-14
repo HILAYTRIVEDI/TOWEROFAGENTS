@@ -43,7 +43,15 @@ class BandSDKClient:
     def __init__(self, settings: Settings) -> None:
         if not settings.band_api_key or not settings.band_agent_id:
             raise RuntimeError("Band credentials are not configured")
-        raise NotImplementedError("Live Band SDK integration is not implemented in the bootstrap")
+        # In-process, request-scoped SDK posting (create_room/post_message) is not
+        # implemented. The live Band integration runs as the standalone coordinator
+        # process (band.coordinator / the `band-agent` compose service), which keeps
+        # a WebSocket open and replies to mentions. This client is not used in the
+        # live path; do not present it as one.
+        raise NotImplementedError(
+            "In-process Band SDK posting is not implemented. Run the band-agent "
+            "coordinator process for live Band integration (see docs/BAND_INTEGRATION.md)."
+        )
 
 
 def create_band_client(settings: Settings) -> BandClient:

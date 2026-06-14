@@ -115,3 +115,27 @@ def test_build_agent_wires_factories_without_network() -> None:
         "ws_url": coordinator.DEFAULT_THENVOI_WS_URL,
         "rest_url": coordinator.DEFAULT_THENVOI_REST_URL,
     }
+
+
+def test_build_agent_accepts_specialist_instructions() -> None:
+    calls: dict[str, dict] = {}
+
+    def fake_adapter(**kwargs):
+        calls["adapter"] = kwargs
+        return "ADAPTER"
+
+    class FakeAgent:
+        @staticmethod
+        def create(**kwargs):
+            return "AGENT"
+
+    coordinator.build_agent(
+        coordinator.build_coordinator_config(_live_settings()),
+        custom_section="SPECIALIST",
+        chat_openai=lambda **kwargs: "LLM",
+        langgraph_adapter=fake_adapter,
+        in_memory_saver=lambda: "SAVER",
+        agent=FakeAgent,
+    )
+
+    assert calls["adapter"]["custom_section"] == "SPECIALIST"

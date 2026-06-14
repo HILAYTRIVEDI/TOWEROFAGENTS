@@ -124,6 +124,7 @@ def build_coordinator_config(settings: Settings) -> CoordinatorConfig:
 def build_agent(
     config: CoordinatorConfig,
     *,
+    custom_section: str = COORDINATOR_INSTRUCTIONS,
     chat_openai=None,
     langgraph_adapter=None,
     in_memory_saver=None,
@@ -154,7 +155,7 @@ def build_agent(
     adapter = langgraph_adapter(
         llm=llm,
         checkpointer=in_memory_saver(),
-        custom_section=COORDINATOR_INSTRUCTIONS,
+        custom_section=custom_section,
     )
     return agent.create(
         adapter=adapter,

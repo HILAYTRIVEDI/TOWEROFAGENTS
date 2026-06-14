@@ -9,12 +9,14 @@ Band is the visible collaboration and audit layer. Each workflow creates or reus
 
 The backend chooses a client from `BAND_MODE`. No caller should branch on SDK details.
 
-## Live coordinator (`@ATower Coordinator`)
+## Live agents
 
 The FastAPI process does **not** keep a Band connection open. Replying to room
 mentions requires a long-lived process that holds a WebSocket and calls
-`agent.run()`. That process is `apps/api/band/coordinator.py`, shipped as the
-`band-agent` Docker Compose service.
+`agent.run()`. The `band-agent` Docker Compose service runs
+`apps/api/band/remote_agents.py`, which supervises the coordinator and every
+configured specialist. `apps/api/band/coordinator.py` owns the shared SDK
+construction and coordinator behavior.
 
 It uses the official Band SDK (`band-sdk[langgraph]`, imported as `thenvoi`):
 
@@ -29,6 +31,20 @@ execution is not implemented (`/workflows/{id}/run` returns 501). Its instructio
 forbid claiming a screening/retrieval/decision happened; it directs users to create
 the workflow and upload artifacts instead.
 
+The specialist catalog contains:
+
+| Slug | Band role |
+|---|---|
+| `workflow-router` | Selects a template, required artifacts, and roster |
+| `rag-retriever` | Checks evidence availability without fabricating retrieval |
+| `policy-guardian` | Reviews supplied policy and escalation needs |
+| `final-decision` | Synthesizes advisory, human-reviewed findings |
+| `resume-jd-matcher` | Compares job requirements with supplied resume evidence |
+| `bias-reviewer` | Audits candidate-screening reasoning for unfair assumptions |
+| `interview-planner` | Creates job-related questions for evidence gaps |
+| `lead-qualifier` | Reviews ICP/CRM evidence and suggests a follow-up |
+| `engineering-reviewer` | Reviews supplied changes, risks, and tests |
+
 ### Live setup
 
 1. In `.env`, set:
@@ -42,18 +58,29 @@ the workflow and upload artifacts instead.
      `wss://app.band.ai/api/v1/socket/websocket` and `https://app.band.ai/`).
 2. Add the remote agent as a **participant** in the target Band room. The SDK only
    receives messages when the agent is a participant and is mentioned.
-3. `docker compose up --build` — the `band-agent` service starts automatically and
-   waits for the API to be healthy.
+3. Create each specialist as a separate Band **Remote Agent**, then add its UUID
+   and API key using the matching environment prefix. Example:
+
+   ```text
+   resume-jd-matcher
+     -> BAND_RESUME_JD_MATCHER_AGENT_ID
+     -> BAND_RESUME_JD_MATCHER_API_KEY
+   ```
+
+   All supported names are listed in `.env.example`. Incomplete pairs fail fast;
+   roles with neither value are skipped.
+4. `docker compose up --build` — the `band-agent` service starts automatically,
+   waits for the API to be healthy, and runs all configured identities concurrently.
 
 ### Troubleshooting
 
 - Watch logs: `docker compose logs -f band-agent`.
 - No reply to a mention? Confirm `BAND_MODE=sdk`, the agent is a room participant,
   the mention targets this agent, and the model is tool-capable.
-- Config errors (missing creds / non-`sdk` mode) fail fast at startup with an
+- Config errors (missing coordinator creds, partial specialist pairs, or non-`sdk`
+  mode) fail fast at startup with an
   explicit message naming the missing variable.
 
 > `BandSDKClient` (the in-process, request-scoped poster) remains intentionally
-> unimplemented and raises `NotImplementedError`. The live path is the coordinator
-> process, not that client.
-
+> unimplemented and raises `NotImplementedError`. The live path is the remote-agent
+> supervisor process, not that client.

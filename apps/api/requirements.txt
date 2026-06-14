@@ -4,7 +4,16 @@ pydantic>=2.10,<3
 pydantic-settings>=2.7,<3
 openai>=1.59,<2
 supabase>=2.11,<3
-langgraph>=0.2.60,<1
+# langgraph 1.x is required by band-sdk[langgraph]; only the Band coordinator
+# imports it today, so the bump is safe for the rest of the API.
+langgraph>=1.0,<2
+# Live Band coordinator (apps/api/band/coordinator.py). The pre-1.0 band-sdk line
+# imports as `thenvoi`; 1.x renamed its top-level package to `band`, which would
+# collide with this repo's own `apps/api/band` module, so stay on 0.2.x. The
+# [langgraph] extra pulls the LangGraphAdapter. langchain-openai wraps the
+# Featherless OpenAI-compatible endpoint. Unused in BAND_MODE=mock.
+band-sdk[langgraph]>=0.2,<1
+langchain-openai>=0.3,<1
 pypdf>=5.1,<6
 python-docx>=1.1,<2
 python-multipart>=0.0.20,<1

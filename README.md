@@ -26,11 +26,28 @@ Stop the services with:
 docker compose down
 ```
 
-Useful Docker commands:
+### Docker Lifecycle Commands
 
 ```bash
+# Start or rebuild the application
+docker compose up --build
+
+# Watch service logs
 docker compose logs -f
+
+# Show container status
 docker compose ps
+
+# Stop containers without removing them
+docker compose stop
+
+# Stop and remove containers and the Compose network
+docker compose down
+
+# Fully destroy containers, volumes, local images, and orphaned services
+docker compose down --volumes --rmi local --remove-orphans
+
+# Force a clean service recreation
 docker compose up --build --force-recreate
 ```
 

@@ -8,7 +8,7 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 |---|---|---|
 | `GET` | `/health` | Service and dependency configuration status |
 | `POST` | `/workflows` | Create a workflow |
-| `GET` | `/workflows` | List workflows |
+| `GET` | `/workflows?org_id={org_id}` | List organization-scoped workflows |
 | `GET` | `/workflows/{workflow_id}` | Workflow detail |
 | `POST` | `/workflows/{workflow_id}/documents` | Upload artifact metadata/file |
 | `POST` | `/workflows/{workflow_id}/index` | Parse, chunk, embed, and index artifacts |
@@ -17,7 +17,9 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 | `GET` | `/agents` | List registered agents |
 | `GET` | `/reports/{report_id}` | Get report by ID |
 
-Only `/health` and static agent/template metadata are functional in the bootstrap. Product endpoints return `501 Not Implemented` rather than fake success.
+Workflow create/list/detail persistence is functional through Supabase. Calling `GET /workflows`
+without `org_id` returns an empty list to prevent accidental cross-organization disclosure.
+Index, run, and report generation endpoints still return `501 Not Implemented`.
 
 ## Core Shapes
 
@@ -65,4 +67,3 @@ Only `/health` and static agent/template metadata are functional in the bootstra
 ```
 
 Errors use FastAPI's `{"detail": "..."}` shape. Upload limits, supported MIME types, pagination, and auth headers will be finalized during product implementation.
-

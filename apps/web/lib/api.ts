@@ -1,7 +1,8 @@
 import type {
   AgentDescriptor,
-  DocumentRecord,
   HealthStatus,
+  DocumentRead,
+  DocumentType,
   Workflow,
   WorkflowCreate,
   WorkflowReport,
@@ -77,9 +78,9 @@ export function createWorkflow(payload: WorkflowCreate): Promise<Workflow> {
 
 export function uploadDocument(
   workflowId: string,
-  docType: string,
   file: File,
-): Promise<DocumentRecord> {
+  docType: DocumentType,
+): Promise<DocumentRead> {
   const body = new FormData();
   body.set("doc_type", docType);
   body.set("file", file);

@@ -24,20 +24,22 @@ export interface Workflow {
   created_at: string;
 }
 
-export interface AgentDescriptor {
-  slug: string;
-  name: string;
-  category: string;
-  description: string;
-}
+export type DocumentType = "resume" | "jd" | "policy" | "crm" | "code" | "other";
 
-export interface DocumentRecord {
+export interface DocumentRead {
   id: string;
   workflow_id: string;
   filename: string;
   mime_type?: string | null;
   status: string;
   created_at: string;
+}
+
+export interface AgentDescriptor {
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
 }
 
 export interface HealthStatus {

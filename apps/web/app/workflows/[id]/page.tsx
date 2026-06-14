@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { DocumentUploadForm } from "@/components/document-upload-form";
+import { DocumentUpload } from "@/components/document-upload";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ApiError, getWorkflow } from "@/lib/api";
@@ -45,9 +45,7 @@ export default async function WorkflowDetailPage({
           </dl>
         </article>
         <article className="detail-card">
-          <p className="eyebrow">Artifacts</p>
-          <h2>Upload source evidence</h2>
-          <DocumentUploadForm workflowId={workflow.id} />
+          <DocumentUpload workflowId={workflow.id} />
         </article>
       </section>
       <EmptyState title="Execution is not implemented yet">

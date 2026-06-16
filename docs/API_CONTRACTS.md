@@ -10,6 +10,7 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 | `POST` | `/workflows` | Create a workflow |
 | `GET` | `/workflows?org_id={org_id}` | List organization-scoped workflows |
 | `GET` | `/workflows/{workflow_id}` | Workflow detail |
+| `DELETE` | `/workflows/{workflow_id}` | Permanently remove a workflow |
 | `POST` | `/workflows/{workflow_id}/documents` | Upload an artifact file to private storage |
 | `POST` | `/workflows/{workflow_id}/index` | Parse, chunk, embed, and index artifacts |
 | `POST` | `/workflows/{workflow_id}/run` | Start orchestration |
@@ -19,6 +20,8 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 
 Workflow create/list/detail persistence is functional through Supabase. Calling `GET /workflows`
 without `org_id` returns an empty list to prevent accidental cross-organization disclosure.
+`DELETE /workflows/{workflow_id}` permanently removes the workflow row and returns `204 No Content`;
+it returns `404` when no matching workflow exists.
 The frontend temporarily reads this scope from `NEXT_PUBLIC_DEFAULT_ORG_ID`;
 authenticated profile-derived scope will replace it when auth is implemented.
 

@@ -195,6 +195,19 @@ h3 {
   background: var(--green-dark);
 }
 
+.button.danger {
+  color: #8a1f1f;
+  background: transparent;
+  border-color: #c97c7c;
+}
+
+.button.danger:hover:not(:disabled),
+.button.danger:focus-visible {
+  color: white;
+  background: #a83232;
+  border-color: #a83232;
+}
+
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -737,6 +750,20 @@ h3 {
   background: rgba(255, 253, 247, 0.86);
   border: 1px solid var(--line);
   border-radius: 12px;
+}
+
+.workflow-row-trailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.workflow-row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 
 .workflow-row-title {

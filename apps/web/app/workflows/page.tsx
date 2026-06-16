@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { WorkflowRemoveButton } from "@/components/workflow-remove-button";
 import { listWorkflows } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +52,15 @@ export default async function WorkflowsPage() {
                   {new Date(workflow.created_at).toLocaleString()}
                 </p>
               </div>
-              <span className={`status-badge status-${workflow.status}`}>
-                {workflow.status.replaceAll("_", " ")}
-              </span>
+              <div className="workflow-row-trailing">
+                <span className={`status-badge status-${workflow.status}`}>
+                  {workflow.status.replaceAll("_", " ")}
+                </span>
+                <WorkflowRemoveButton
+                  title={workflow.title}
+                  workflowId={workflow.id}
+                />
+              </div>
             </li>
           ))}
         </ul>

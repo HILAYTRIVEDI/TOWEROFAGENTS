@@ -26,6 +26,8 @@ class WorkflowRepository(Protocol):
 
     async def get_workflow(self, workflow_id: UUID) -> dict[str, Any] | None: ...
 
+    async def delete_workflow(self, workflow_id: UUID) -> bool: ...
+
 
 class SupabaseWorkflowRepository:
     _select = (
@@ -44,6 +46,9 @@ class SupabaseWorkflowRepository:
 
     async def get_workflow(self, workflow_id: UUID) -> dict[str, Any] | None:
         return await asyncio.to_thread(self._get_workflow, workflow_id)
+
+    async def delete_workflow(self, workflow_id: UUID) -> bool:
+        return await asyncio.to_thread(self._delete_workflow, workflow_id)
 
     def _create_workflow(self, payload: WorkflowCreate) -> dict[str, Any]:
         template_id = None
@@ -102,6 +107,15 @@ class SupabaseWorkflowRepository:
         if not response.data:
             return None
         return self._normalize_workflow(response.data[0])
+
+    def _delete_workflow(self, workflow_id: UUID) -> bool:
+        response = (
+            self._client.table("workflows")
+            .delete()
+            .eq("id", str(workflow_id))
+            .execute()
+        )
+        return bool(response.data)
 
     @staticmethod
     def _normalize_workflow(row: dict[str, Any]) -> dict[str, Any]:

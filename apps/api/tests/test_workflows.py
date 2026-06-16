@@ -37,6 +37,9 @@ class FakeWorkflowRepository:
     async def get_workflow(self, workflow_id: UUID) -> dict | None:
         return self.row() if workflow_id == self.workflow_id else None
 
+    async def delete_workflow(self, workflow_id: UUID) -> bool:
+        return workflow_id == self.workflow_id
+
 
 def test_list_workflows_without_org_scope_is_empty() -> None:
     repository = FakeWorkflowRepository()
@@ -83,3 +86,26 @@ def test_create_and_get_workflow() -> None:
     assert created.status_code == 201
     assert created.json()["title"] == "New candidate review"
     assert fetched.status_code == 200
+
+
+def test_delete_workflow_returns_no_content() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).delete(f"/workflows/{repository.workflow_id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_delete_missing_workflow_returns_not_found() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).delete(f"/workflows/{uuid4()}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404

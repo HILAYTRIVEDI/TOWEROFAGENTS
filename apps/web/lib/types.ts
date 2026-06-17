@@ -31,6 +31,7 @@ export interface DocumentRead {
   workflow_id: string;
   filename: string;
   mime_type?: string | null;
+  doc_type?: string | null;
   status: string;
   created_at: string;
 }
@@ -62,3 +63,15 @@ export interface WorkflowReport {
   evidence_chunk_ids: string[];
   requires_human_review: boolean;
 }
+
+export interface AgentFinding {
+  agent_name: string;
+  finding_type: string;
+  severity: string;
+  title: string;
+  content: string;
+  evidence_chunk_ids: string[];
+  confidence: number;
+  requires_human_review: boolean;
+}
+

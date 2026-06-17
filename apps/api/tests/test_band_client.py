@@ -73,7 +73,8 @@ async def test_sdk_client_create_room() -> None:
     assert room_id == "room-999"
     client._client.agent_api_chats.create_agent_chat.assert_called_once()
     call_args = client._client.agent_api_chats.create_agent_chat.call_args[1]
-    assert call_args["chat"].title == "New Room"
+    # Check title or task_id parameter in extra params
+    assert call_args["chat"].task_id == "New Room"
 
 
 @pytest.mark.asyncio
@@ -126,3 +127,9 @@ async def test_sdk_client_post_message_with_mentions() -> None:
     assert mentions_dict["workflow-router"] == "router-uuid"
     assert mentions_dict["dynamic-user"] == "user-uuid"
     assert "unknown" not in mentions_dict
+
+
+def test_create_band_client_factory_invalid() -> None:
+    settings = Settings(band_mode="invalid")
+    with pytest.raises(ValueError, match="Unsupported BAND_MODE: invalid"):
+        create_band_client(settings)

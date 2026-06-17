@@ -24,6 +24,8 @@ class DocumentRepository(Protocol):
         mime_type: str | None,
     ) -> dict[str, Any]: ...
 
+    async def list_documents(self, workflow_id: UUID) -> list[dict[str, Any]]: ...
+
 
 def _safe_object_name(filename: str) -> str:
     base = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
@@ -48,6 +50,9 @@ class SupabaseDocumentRepository:
         return await asyncio.to_thread(
             self._store_document, workflow_id, doc_type, filename, content, mime_type
         )
+
+    async def list_documents(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self._list_documents, workflow_id)
 
     def _store_document(
         self,
@@ -104,3 +109,13 @@ class SupabaseDocumentRepository:
         if not inserted.data:
             raise RuntimeError("Supabase document insert returned no data")
         return inserted.data[0]
+
+    def _list_documents(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        response = (
+            self._client.table("documents")
+            .select("*")
+            .eq("workflow_id", str(workflow_id))
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return response.data or []

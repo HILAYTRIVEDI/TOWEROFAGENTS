@@ -18,7 +18,13 @@ const DOC_TYPES: { value: DocumentType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-export function DocumentUpload({ workflowId }: { workflowId: string }) {
+export function DocumentUpload({
+  workflowId,
+  onUploadComplete,
+}: {
+  workflowId: string;
+  onUploadComplete?: () => void;
+}) {
   const [docType, setDocType] = useState<DocumentType>("resume");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +57,9 @@ export function DocumentUpload({ workflowId }: { workflowId: string }) {
       setUploaded((current) => [document, ...current]);
       form.reset();
       setDocType("resume");
+      if (onUploadComplete) {
+        onUploadComplete();
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Upload failed.");
     } finally {

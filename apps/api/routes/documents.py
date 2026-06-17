@@ -76,3 +76,15 @@ async def upload_document(
     # Confidential content: log only non-sensitive identifiers, never bytes.
     logger.info("Stored document %s for workflow %s", row.get("id"), workflow_id)
     return DocumentRead.model_validate(row)
+
+
+@router.get(
+    "/{workflow_id}/documents",
+    response_model=list[DocumentRead],
+)
+async def list_documents(
+    workflow_id: UUID,
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> list[DocumentRead]:
+    rows = await repository.list_documents(workflow_id)
+    return [DocumentRead.model_validate(row) for row in rows]

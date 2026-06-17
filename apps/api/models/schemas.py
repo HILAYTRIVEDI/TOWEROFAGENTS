@@ -62,6 +62,7 @@ class DocumentRead(BaseModel):
     workflow_id: UUID
     filename: str
     mime_type: str | None = None
+    doc_type: str | None = None
     status: str
     created_at: datetime
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, 
 from core.config import Settings, get_settings
 from db.queries import SupabaseWorkflowRepository, WorkflowRepository
 from db.supabase_client import create_supabase_client
-from models.schemas import WorkflowCreate, WorkflowRead, WorkflowReportRead, WorkflowRunRequest
+from models.schemas import AgentFinding, WorkflowCreate, WorkflowRead, WorkflowReportRead, WorkflowRunRequest
 from rag.embeddings import get_embedding_provider
 from rag.parser import parse_document
 from rag.chunker import chunk_text
@@ -266,5 +266,74 @@ async def run_workflow(workflow_id: UUID, payload: WorkflowRunRequest) -> dict[s
 
 
 @router.get("/{workflow_id}/report", response_model=WorkflowReportRead)
-async def get_workflow_report(workflow_id: UUID) -> WorkflowReportRead:
-    execution_not_implemented()
+async def get_workflow_report(
+    workflow_id: UUID,
+    settings: Settings = Depends(get_settings),
+) -> WorkflowReportRead:
+    try:
+        client = create_supabase_client(settings)
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+    response = await asyncio.to_thread(
+        lambda: client.table("workflow_reports")
+        .select("*")
+        .eq("workflow_id", str(workflow_id))
+        .limit(1)
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found for this workflow",
+        )
+
+    return WorkflowReportRead.model_validate(response.data[0])
+
+
+@router.get("/{workflow_id}/findings", response_model=list[AgentFinding])
+async def get_workflow_findings(
+    workflow_id: UUID,
+    settings: Settings = Depends(get_settings),
+) -> list[AgentFinding]:
+    try:
+        client = create_supabase_client(settings)
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+    response = await asyncio.to_thread(
+        lambda: client.table("agent_findings")
+        .select("*")
+        .eq("workflow_id", str(workflow_id))
+        .execute()
+    )
+
+    findings = response.data or []
+
+    from agents.registry import list_agents
+    agents_map = {agent.slug: agent.name for agent in list_agents()}
+
+    result = []
+    for f in findings:
+        agent_name = agents_map.get(f["agent_slug"], f["agent_slug"])
+        result.append(
+            AgentFinding(
+                agent_name=agent_name,
+                finding_type=f["finding_type"],
+                severity=f["severity"],
+                title=f["title"],
+                content=f["content"],
+                evidence_chunk_ids=[str(i) for i in f["evidence_chunk_ids"] or []],
+                confidence=f["confidence"],
+                requires_human_review=f["requires_human_review"],
+            )
+        )
+    return result
+

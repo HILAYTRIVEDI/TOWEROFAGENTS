@@ -6,6 +6,7 @@ import type {
   Workflow,
   WorkflowCreate,
   WorkflowReport,
+  AgentFinding,
 } from "@/lib/types";
 
 const PUBLIC_API_BASE_URL =
@@ -114,3 +115,30 @@ export function getWorkflowReport(workflowId: string): Promise<WorkflowReport> {
 export function getReport(reportId: string): Promise<WorkflowReport> {
   return apiRequest(`/reports/${reportId}`, { cache: "no-store" });
 }
+
+export function listDocuments(workflowId: string): Promise<DocumentRead[]> {
+  return apiRequest(`/workflows/${workflowId}/documents`, { cache: "no-store" });
+}
+
+export function getWorkflowFindings(workflowId: string): Promise<AgentFinding[]> {
+  return apiRequest(`/workflows/${workflowId}/findings`, { cache: "no-store" });
+}
+
+export function indexWorkflow(
+  workflowId: string,
+): Promise<{ status: string; message: string }> {
+  return apiRequest(`/workflows/${workflowId}/index`, {
+    method: "POST",
+  });
+}
+
+export function runWorkflow(
+  workflowId: string,
+  forceReindex = false,
+): Promise<{ status: string; message: string }> {
+  return apiRequest(`/workflows/${workflowId}/run`, {
+    method: "POST",
+    body: JSON.stringify({ force_reindex: forceReindex }),
+  });
+}
+

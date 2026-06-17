@@ -74,7 +74,7 @@ async def test_sdk_client_create_room() -> None:
     client._client.agent_api_chats.create_agent_chat.assert_called_once()
     call_args = client._client.agent_api_chats.create_agent_chat.call_args[1]
     # Check title or task_id parameter in extra params
-    assert call_args["chat"].task_id == "New Room"
+    assert call_args["chat"].title == "New Room"
 
 
 @pytest.mark.asyncio

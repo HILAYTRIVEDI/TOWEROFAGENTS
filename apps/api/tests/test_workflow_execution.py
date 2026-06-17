@@ -36,28 +36,3 @@ def test_planned_node_order() -> None:
         "save_report",
     )
 
-
-def test_build_workflow_graph_raises_not_implemented() -> None:
-    with pytest.raises(NotImplementedError, match="LangGraph execution is not implemented"):
-        build_workflow_graph()
-
-
-@pytest.mark.asyncio
-async def test_workflow_executor_raises_not_implemented() -> None:
-    executor = WorkflowExecutor()
-    dummy_state = WorkflowState(
-        workflow_id="123",
-        org_id="456",
-        user_request="run",
-        template_slug="hr-candidate-screening",
-        band_room_id=None,
-        artifacts=[],
-        selected_agents=[],
-        retrieved_context=[],
-        agent_findings=[],
-        policy_verdict=None,
-        final_report=None,
-        status="pending",
-    )
-    with pytest.raises(NotImplementedError, match="Workflow execution is not implemented"):
-        await executor.run(dummy_state)

@@ -20,7 +20,8 @@ construction and coordinator behavior.
 
 It uses the official Band SDK (`band-sdk[langgraph]`, imported as `thenvoi`):
 
-- `ChatOpenAI` (langchain-openai) pointed at Featherless (`FEATHERLESS_BASE_URL`).
+- `ChatOpenAI` (langchain-openai) pointed at the configured OpenAI-compatible
+  provider: AIML API when `LLM_PROVIDER=aiml`, otherwise Featherless.
 - `LangGraphAdapter(llm=..., checkpointer=InMemorySaver(), custom_section=...)`
   with ATower-specific instructions.
 - `Agent.create(adapter=..., agent_id=..., api_key=..., ws_url=..., rest_url=...)`
@@ -50,10 +51,12 @@ The specialist catalog contains:
 1. In `.env`, set:
    - `BAND_MODE=sdk`
    - `BAND_AGENT_ID` and `BAND_API_KEY` (the remote agent's credentials)
-   - `FEATHERLESS_API_KEY` and a tool-capable model via `FEATHERLESS_TOOL_MODEL`
-     (falls back to `FEATHERLESS_DEFAULT_MODEL`). The Band adapter replies via
-     platform tools, so the model **must support OpenAI tool calling** — verify
-     this for your chosen Featherless model or the agent will stay silent.
+   - A tool-capable model provider:
+     - `LLM_PROVIDER=aiml`, `AIML_API_KEY`, and `AIML_DEFAULT_MODEL`; or
+     - `LLM_PROVIDER=featherless`, `FEATHERLESS_API_KEY`, and a model via
+       `FEATHERLESS_TOOL_MODEL` (falls back to `FEATHERLESS_DEFAULT_MODEL`).
+     The Band adapter replies via platform tools, so the model **must support
+     OpenAI tool calling** or the agent will stay silent.
    - Optionally `THENVOI_WS_URL` / `THENVOI_REST_URL` (defaults:
      `wss://app.band.ai/api/v1/socket/websocket` and `https://app.band.ai/`).
 2. Add the remote agent as a **participant** in the target Band room. The SDK only

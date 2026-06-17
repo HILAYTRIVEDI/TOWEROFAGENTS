@@ -81,7 +81,8 @@ def build_specialist_agent(
     config = CoordinatorConfig(
         agent_id=credentials.agent_id,
         band_api_key=credentials.api_key,
-        featherless_api_key=coordinator_config.featherless_api_key,
+        llm_api_key=coordinator_config.llm_api_key,
+        llm_provider=coordinator_config.llm_provider,
         model=coordinator_config.model,
         base_url=coordinator_config.base_url,
         ws_url=coordinator_config.ws_url,

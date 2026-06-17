@@ -17,6 +17,7 @@ def _live_settings(**overrides) -> Settings:
         band_api_key="band-secret",
         featherless_api_key="feather-secret",
         featherless_default_model="deepseek-ai/DeepSeek-V3.1",
+        llm_provider="featherless",
         band_default_room_id="room-abc",
     )
     base.update(overrides)
@@ -33,7 +34,6 @@ def test_requires_sdk_mode() -> None:
     [
         ("band_agent_id", "BAND_AGENT_ID"),
         ("band_api_key", "BAND_API_KEY"),
-        ("featherless_api_key", "FEATHERLESS_API_KEY"),
     ],
 )
 def test_missing_credentials_named_clearly(field: str, token: str) -> None:
@@ -43,13 +43,44 @@ def test_missing_credentials_named_clearly(field: str, token: str) -> None:
 
 def test_missing_model_fails_with_tool_hint() -> None:
     settings = _live_settings(featherless_default_model=None, featherless_tool_model=None)
-    with pytest.raises(RuntimeError, match="tool"):
+    with pytest.raises(RuntimeError, match="FEATHERLESS_TOOL_MODEL"):
         coordinator.build_coordinator_config(settings)
+
+
+def test_featherless_missing_key_is_named_clearly() -> None:
+    with pytest.raises(RuntimeError, match="FEATHERLESS_API_KEY"):
+        coordinator.build_coordinator_config(_live_settings(featherless_api_key=None))
+
+
+def test_aiml_provider_requires_key_and_model() -> None:
+    with pytest.raises(RuntimeError, match="AIML_API_KEY"):
+        coordinator.build_coordinator_config(
+            _live_settings(llm_provider="aiml", aiml_api_key=None, aiml_default_model="gpt-4o")
+        )
+    with pytest.raises(RuntimeError, match="AIML_DEFAULT_MODEL"):
+        coordinator.build_coordinator_config(
+            _live_settings(llm_provider="aiml", aiml_api_key="aiml-secret", aiml_default_model=None)
+        )
+
+
+def test_aiml_provider_uses_aiml_endpoint() -> None:
+    config = coordinator.build_coordinator_config(
+        _live_settings(
+            llm_provider="aiml",
+            aiml_api_key="aiml-secret",
+            aiml_default_model="gpt-4o",
+        )
+    )
+    assert config.llm_provider == "aiml"
+    assert config.llm_api_key == "aiml-secret"
+    assert config.model == "gpt-4o"
+    assert config.base_url == coordinator.DEFAULT_AIML_BASE_URL
 
 
 def test_resolves_defaults_and_overrides() -> None:
     config = coordinator.build_coordinator_config(_live_settings())
     assert config.agent_id == "agent-123"
+    assert config.llm_provider == "featherless"
     assert config.model == "deepseek-ai/DeepSeek-V3.1"
     assert config.base_url == "https://api.featherless.ai/v1"
     assert config.ws_url == coordinator.DEFAULT_THENVOI_WS_URL

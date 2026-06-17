@@ -76,6 +76,23 @@ export function createWorkflow(payload: WorkflowCreate): Promise<Workflow> {
   });
 }
 
+export async function deleteWorkflow(workflowId: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl()}/workflows/${workflowId}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { detail?: string }
+      | null;
+    throw new ApiError(
+      body?.detail ?? `API request failed (${response.status})`,
+      response.status,
+    );
+  }
+}
+
 export function uploadDocument(
   workflowId: string,
   file: File,

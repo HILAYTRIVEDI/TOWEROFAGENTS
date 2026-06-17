@@ -101,8 +101,10 @@ the dashboard until Supabase authentication supplies it from the signed-in user.
 
 `BAND_MODE=mock` keeps everything in-process. To make the `@ATower Coordinator`
 reply to room mentions, set `BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`,
-`FEATHERLESS_API_KEY`, and a tool-capable `FEATHERLESS_TOOL_MODEL`, then add the
-remote agent as a participant in the room. `docker compose up --build` starts the
+either `LLM_PROVIDER=aiml` with `AIML_API_KEY`/`AIML_DEFAULT_MODEL`, or
+`LLM_PROVIDER=featherless` with `FEATHERLESS_API_KEY` and a tool-capable
+`FEATHERLESS_TOOL_MODEL`, then add the remote agent as a participant in the room.
+`docker compose up --build` starts the
 `band-agent` service automatically; tail it with `docker compose logs -f band-agent`.
 HR workflow execution is still unimplemented (`/workflows/{id}/run` returns 501) —
 the coordinator says so rather than fabricating results. See `docs/BAND_INTEGRATION.md`.

@@ -3,7 +3,7 @@ import logging
 from typing import NoReturn
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, BackgroundTasks
 
 from core.config import Settings, get_settings
 from db.queries import SupabaseWorkflowRepository, WorkflowRepository
@@ -75,6 +75,20 @@ async def get_workflow(
             detail="Workflow not found",
         )
     return WorkflowRead.model_validate(workflow)
+
+
+@router.delete("/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_workflow(
+    workflow_id: UUID,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+) -> Response:
+    deleted = await repository.delete_workflow(workflow_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 async def index_workflow_documents(workflow_id: UUID, settings: Settings) -> None:

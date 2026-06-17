@@ -11,7 +11,8 @@ workflow: `/workflows/{id}/run` is still 501. The agent is instructed to say so
 plainly and point users at artifact upload instead of fabricating results.
 
 Run it with `python -m band.coordinator` (the `band-agent` compose service does
-this automatically). Requires `BAND_MODE=sdk` plus Band and Featherless creds.
+this automatically). Requires `BAND_MODE=sdk` plus Band and a tool-capable
+OpenAI-compatible model provider.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Band's public defaults (docs: THENVOI_REST_URL / THENVOI_WS_URL).
 DEFAULT_THENVOI_REST_URL = "https://app.band.ai/"
 DEFAULT_THENVOI_WS_URL = "wss://app.band.ai/api/v1/socket/websocket"
+DEFAULT_AIML_BASE_URL = "https://api.aimlapi.com/v1"
 
 # ATower-specific behavior. Kept honest about current capabilities: the
 # coordinator can talk and coordinate in the room, but cannot run the HR
@@ -63,7 +65,8 @@ class CoordinatorConfig:
 
     agent_id: str
     band_api_key: str
-    featherless_api_key: str
+    llm_api_key: str
+    llm_provider: str
     model: str
     base_url: str
     ws_url: str
@@ -84,37 +87,66 @@ def build_coordinator_config(settings: Settings) -> CoordinatorConfig:
             f"(current BAND_MODE={settings.band_mode!r}). Set BAND_MODE=sdk to run live."
         )
 
-    missing = [
+    band_missing = [
         name
         for name, value in (
             ("BAND_AGENT_ID", settings.band_agent_id),
             ("BAND_API_KEY", settings.band_api_key),
-            ("FEATHERLESS_API_KEY", settings.featherless_api_key),
         )
         if not value
     ]
-    if missing:
+    if band_missing:
         raise RuntimeError(
-            "Band coordinator is missing required configuration: " + ", ".join(missing)
+            "Band coordinator is missing required configuration: " + ", ".join(band_missing)
         )
 
-    model = settings.featherless_tool_model or settings.featherless_default_model
-    if not model:
+    provider = settings.llm_provider.lower()
+    if provider == "aiml":
+        llm_api_key = settings.aiml_api_key
+        model = settings.aiml_default_model
+        base_url = DEFAULT_AIML_BASE_URL
+        missing = [
+            name
+            for name, value in (
+                ("AIML_API_KEY", llm_api_key),
+                ("AIML_DEFAULT_MODEL", model),
+            )
+            if not value
+        ]
+    elif provider in {"featherless", "auto"}:
+        provider = "featherless"
+        llm_api_key = settings.featherless_api_key
+        model = settings.featherless_tool_model or settings.featherless_default_model
+        base_url = settings.featherless_base_url
+        missing = [
+            name
+            for name, value in (
+                ("FEATHERLESS_API_KEY", llm_api_key),
+                ("FEATHERLESS_TOOL_MODEL or FEATHERLESS_DEFAULT_MODEL", model),
+            )
+            if not value
+        ]
+    else:
         raise RuntimeError(
-            "Band coordinator requires a Featherless model. Set FEATHERLESS_TOOL_MODEL "
-            "(or FEATHERLESS_DEFAULT_MODEL) to a tool-calling-capable model. The Band "
-            "adapter sends replies via platform tools, so a non-tool model will stay silent."
+            "Band coordinator requires LLM_PROVIDER=aiml or LLM_PROVIDER=featherless "
+            f"when BAND_MODE=sdk (current LLM_PROVIDER={settings.llm_provider!r})."
+        )
+
+    if missing:
+        raise RuntimeError(
+            "Band coordinator is missing required model configuration: " + ", ".join(missing)
         )
 
     # Narrowed to str by the checks above; assert for the type checker.
-    assert settings.band_agent_id and settings.band_api_key and settings.featherless_api_key
+    assert settings.band_agent_id and settings.band_api_key and llm_api_key and model
 
     return CoordinatorConfig(
         agent_id=settings.band_agent_id,
         band_api_key=settings.band_api_key,
-        featherless_api_key=settings.featherless_api_key,
+        llm_api_key=llm_api_key,
+        llm_provider=provider,
         model=model,
-        base_url=settings.featherless_base_url,
+        base_url=base_url,
         ws_url=settings.thenvoi_ws_url or DEFAULT_THENVOI_WS_URL,
         rest_url=settings.thenvoi_rest_url or DEFAULT_THENVOI_REST_URL,
         room_id=settings.band_default_room_id,
@@ -150,7 +182,7 @@ def build_agent(
     llm = chat_openai(
         model=config.model,
         base_url=config.base_url,
-        api_key=config.featherless_api_key,
+        api_key=config.llm_api_key,
     )
     adapter = langgraph_adapter(
         llm=llm,
@@ -173,8 +205,9 @@ async def run(settings: Settings | None = None) -> None:
     config = build_coordinator_config(settings)
     agent = build_agent(config)
     logger.info(
-        "ATower Coordinator starting (agent_id=%s, model=%s, room=%s)",
+        "ATower Coordinator starting (agent_id=%s, provider=%s, model=%s, room=%s)",
         config.agent_id,
+        config.llm_provider,
         config.model,
         config.room_id or "<none configured>",
     )

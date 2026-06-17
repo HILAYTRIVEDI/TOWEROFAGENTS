@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { href: "/workflows", label: "Workflows" },
   { href: "/agents", label: "Agents" },
   { href: "/knowledge-base", label: "Knowledge" },
+  { href: "/docs", label: "Docs" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -35,4 +36,3 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

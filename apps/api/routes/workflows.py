@@ -261,10 +261,118 @@ async def index_workflow(
 
 
 @router.post("/{workflow_id}/run", status_code=status.HTTP_202_ACCEPTED)
-async def run_workflow(workflow_id: UUID, payload: WorkflowRunRequest) -> dict[str, str]:
-    execution_not_implemented()
+async def run_workflow(
+    workflow_id: UUID,
+    payload: WorkflowRunRequest,
+    background_tasks: BackgroundTasks,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    try:
+        client = create_supabase_client(settings)
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+    workflow_response = await asyncio.to_thread(
+        lambda: client.table("workflows")
+        .select("id, org_id, title, user_request, template_id, status, band_room_id")
+        .eq("id", str(workflow_id))
+        .limit(1)
+        .execute()
+    )
+    if not workflow_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+    workflow_data = workflow_response.data[0]
+
+    if payload.force_reindex:
+        background_tasks.add_task(index_workflow_documents, workflow_id, settings)
+
+    await asyncio.to_thread(
+        lambda: client.table("workflows")
+        .update({"status": "running"})
+        .eq("id", str(workflow_id))
+        .execute()
+    )
+
+    async def execute_task():
+        try:
+            from workflows.executor import WorkflowExecutor
+            from workflows.graph import WorkflowState
+
+            template_slug = None
+            if workflow_data.get("template_id"):
+                template_resp = await asyncio.to_thread(
+                    lambda: client.table("workflow_templates")
+                    .select("slug")
+                    .eq("id", workflow_data["template_id"])
+                    .single()
+                    .execute()
+                )
+                if template_resp.data:
+                    template_slug = template_resp.data["slug"]
+
+            state = WorkflowState(
+                workflow_id=str(workflow_id),
+                org_id=str(workflow_data["org_id"]),
+                user_request=workflow_data["user_request"],
+                template_slug=template_slug,
+                band_room_id=workflow_data.get("band_room_id"),
+                artifacts=[],
+                selected_agents=[],
+                retrieved_context=[],
+                agent_findings=[],
+                policy_verdict=None,
+                final_report=None,
+                status="running",
+            )
+
+            executor = WorkflowExecutor()
+            await executor.run(state)
+        except Exception as e:
+            logger.error("Error executing workflow %s: %s", workflow_id, e, exc_info=True)
+            try:
+                await asyncio.to_thread(
+                    lambda: client.table("workflows")
+                    .update({"status": "failed", "error_message": str(e)})
+                    .eq("id", str(workflow_id))
+                    .execute()
+                )
+            except Exception as update_err:
+                logger.error("Failed to update status for workflow %s: %s", workflow_id, update_err)
+
+    background_tasks.add_task(execute_task)
+
+    return {"status": "running", "message": "Workflow execution started"}
 
 
 @router.get("/{workflow_id}/report", response_model=WorkflowReportRead)
-async def get_workflow_report(workflow_id: UUID) -> WorkflowReportRead:
-    execution_not_implemented()
+async def get_workflow_report(
+    workflow_id: UUID,
+    settings: Settings = Depends(get_settings),
+) -> WorkflowReportRead:
+    try:
+        client = create_supabase_client(settings)
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+    response = await asyncio.to_thread(
+        lambda: client.table("workflow_reports")
+        .select("*")
+        .eq("workflow_id", str(workflow_id))
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow report not found",
+        )
+    return WorkflowReportRead.model_validate(response.data[0])

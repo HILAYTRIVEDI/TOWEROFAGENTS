@@ -10,7 +10,7 @@ from db.documents import (
     WorkflowNotFoundError,
 )
 from main import app
-from routes.documents import get_document_repository
+from routes.documents import get_document_repository, get_embedding_provider_dep
 
 
 class FakeDocumentRepository:
@@ -177,6 +177,77 @@ def test_upload_unknown_organization_returns_404() -> None:
     assert response.status_code == 404
 
 
+# --- ingestion wiring (upload schedules parse -> chunk -> embed) ----------
+
+
+class _StubEmbeddingProvider:
+    dimensions = 8
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.1] * self.dimensions for _ in texts]
+
+    async def embed_query(self, text: str) -> list[float]:
+        return [0.1] * self.dimensions
+
+
+class IngestingDocumentRepository(FakeDocumentRepository):
+    """Fake repo that also captures the chunks ingestion would persist."""
+
+    def __init__(self, *, content: bytes, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._content = content
+        self.statuses: list[str] = []
+        self.chunks: list[dict] = []
+
+    async def store_document(self, **kwargs) -> dict:
+        row = await super().store_document(**kwargs)
+        # Ingestion needs storage_path + filename to round-trip the upload.
+        row["storage_path"] = f"{kwargs['workflow_id']}/stored-{kwargs['filename']}"
+        return row
+
+    async def download_document(self, storage_path: str) -> bytes:
+        return self._content
+
+    async def set_document_status(self, document_id, status: str) -> None:
+        self.statuses.append(status)
+
+    async def replace_document_chunks(self, *, document_id, org_id, workflow_id, chunks) -> int:
+        self.chunks = [
+            {
+                "org_id": str(org_id),
+                "workflow_id": None if workflow_id is None else str(workflow_id),
+                **chunk,
+            }
+            for chunk in chunks
+        ]
+        return len(self.chunks)
+
+
+def test_upload_document_schedules_ingestion_into_chunks() -> None:
+    workflow_id = uuid4()
+    repository = IngestingDocumentRepository(
+        known_workflow=workflow_id,
+        content=("policy paragraph " * 50).encode("utf-8"),
+    )
+    app.dependency_overrides[get_document_repository] = lambda: repository
+    app.dependency_overrides[get_embedding_provider_dep] = _StubEmbeddingProvider
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{workflow_id}/documents",
+            data={"doc_type": "policy"},
+            files={"file": ("handbook.txt", repository._content, "text/plain")},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    # Background task ran after the response: chunks were embedded and persisted.
+    assert repository.statuses == ["parsing", "indexed"]
+    assert len(repository.chunks) >= 1
+    assert all(c["workflow_id"] == str(workflow_id) for c in repository.chunks)
+    assert all(len(c["embedding"]) == 8 for c in repository.chunks)
+
+
 # --- storage repository logic (no network) -------------------------------
 
 
@@ -210,8 +281,20 @@ class _FakeTable:
         self._insert = row
         return self
 
+    def update(self, values):
+        self._store.setdefault("updates", []).append({"table": self._name, "values": values})
+        return self
+
+    def delete(self):
+        self._store.setdefault("deletes", []).append(self._name)
+        return self
+
     def execute(self):
         if self._insert is not None:
+            if self._name == "document_chunks":
+                rows = self._insert if isinstance(self._insert, list) else [self._insert]
+                self._store["chunk_rows"] = rows
+                return _FakeResult(rows)
             row = dict(self._insert)
             row.setdefault("id", str(uuid4()))
             row.setdefault("created_at", datetime.now(UTC).isoformat())
@@ -324,6 +407,49 @@ def test_repository_lists_shared_org_files_only() -> None:
     rows = asyncio.run(repository.list_organization_documents(org_id))
 
     assert rows == store["documents"]
+
+
+def test_repository_replace_chunks_scopes_workflow_chunks() -> None:
+    store: dict = {"org_id": str(uuid4())}
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+    document_id = uuid4()
+    org_id = uuid4()
+    workflow_id = uuid4()
+
+    count = asyncio.run(
+        repository.replace_document_chunks(
+            document_id=document_id,
+            org_id=org_id,
+            workflow_id=workflow_id,
+            chunks=[{"chunk_index": 0, "content": "x", "metadata": {}, "embedding": [0.0]}],
+        )
+    )
+
+    assert count == 1
+    # Existing chunks are cleared before inserting fresh ones.
+    assert "document_chunks" in store["deletes"]
+    rows = store["chunk_rows"]
+    assert rows[0]["document_id"] == str(document_id)
+    assert rows[0]["org_id"] == str(org_id)
+    assert rows[0]["workflow_id"] == str(workflow_id)
+
+
+def test_repository_replace_chunks_keeps_shared_chunks_null_scoped() -> None:
+    store: dict = {"org_id": str(uuid4())}
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+
+    count = asyncio.run(
+        repository.replace_document_chunks(
+            document_id=uuid4(),
+            org_id=uuid4(),
+            workflow_id=None,
+            chunks=[{"chunk_index": 0, "content": "x", "metadata": {}, "embedding": [0.0]}],
+        )
+    )
+
+    assert count == 1
+    # NULL workflow_id makes the chunk visible across every workflow in the org.
+    assert store["chunk_rows"][0]["workflow_id"] is None
 
 
 def test_repository_raises_for_unknown_workflow() -> None:

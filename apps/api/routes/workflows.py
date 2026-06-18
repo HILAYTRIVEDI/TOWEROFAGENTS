@@ -1,12 +1,24 @@
 from typing import NoReturn
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 
 from core.config import Settings, get_settings
+from db.documents import DocumentRepository
 from db.queries import SupabaseWorkflowRepository, WorkflowRepository
 from db.supabase_client import create_supabase_client
 from models.schemas import WorkflowCreate, WorkflowRead, WorkflowReportRead, WorkflowRunRequest
+from rag.embeddings import EmbeddingProvider
+from rag.ingestion import run_ingestion_safely
+from routes.documents import get_document_repository, get_embedding_provider_dep
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -85,8 +97,36 @@ async def delete_workflow(
 
 
 @router.post("/{workflow_id}/index", status_code=status.HTTP_202_ACCEPTED)
-async def index_workflow(workflow_id: UUID) -> dict[str, str]:
-    execution_not_implemented()
+async def index_workflow(
+    workflow_id: UUID,
+    background_tasks: BackgroundTasks,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+    documents: DocumentRepository = Depends(get_document_repository),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider_dep),
+) -> dict[str, str]:
+    workflow = await repository.get_workflow(workflow_id)
+    if workflow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+
+    # Re-index every document attached to this workflow. Ingestion replaces a
+    # document's existing chunks, so this is safe to call repeatedly.
+    rows = await documents.list_workflow_documents(workflow_id)
+    for row in rows:
+        background_tasks.add_task(
+            run_ingestion_safely,
+            row,
+            store=documents,
+            embedding_provider=embedding_provider,
+        )
+
+    return {
+        "status": "accepted",
+        "workflow_id": str(workflow_id),
+        "documents": str(len(rows)),
+    }
 
 
 @router.post("/{workflow_id}/run", status_code=status.HTTP_202_ACCEPTED)

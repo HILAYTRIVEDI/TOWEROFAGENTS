@@ -1,7 +1,16 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 
 from core.config import Settings, get_settings
 from db.documents import (
@@ -12,6 +21,8 @@ from db.documents import (
 )
 from db.supabase_client import create_supabase_client
 from models.schemas import DocumentRead
+from rag.embeddings import EmbeddingProvider, get_embedding_provider
+from rag.ingestion import run_ingestion_safely
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +45,12 @@ def get_document_repository(
     return SupabaseDocumentRepository(client, settings.documents_bucket)
 
 
+def get_embedding_provider_dep(
+    settings: Settings = Depends(get_settings),
+) -> EmbeddingProvider:
+    return get_embedding_provider(settings)
+
+
 @router.post(
     "/workflows/{workflow_id}/documents",
     response_model=DocumentRead,
@@ -41,10 +58,12 @@ def get_document_repository(
 )
 async def upload_document(
     workflow_id: UUID,
+    background_tasks: BackgroundTasks,
     doc_type: str = Form(...),
     file: UploadFile = File(...),
     settings: Settings = Depends(get_settings),
     repository: DocumentRepository = Depends(get_document_repository),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider_dep),
 ) -> DocumentRead:
     if doc_type not in ALLOWED_DOC_TYPES:
         raise HTTPException(
@@ -80,6 +99,14 @@ async def upload_document(
 
     # Confidential content: log only non-sensitive identifiers, never bytes.
     logger.info("Stored document %s for workflow %s", row.get("id"), workflow_id)
+
+    # Parse -> chunk -> embed -> persist scoped chunks once the response is sent.
+    background_tasks.add_task(
+        run_ingestion_safely,
+        row,
+        store=repository,
+        embedding_provider=embedding_provider,
+    )
     return DocumentRead.model_validate(row)
 
 
@@ -105,10 +132,12 @@ async def list_organization_documents(
 )
 async def upload_organization_document(
     org_id: UUID,
+    background_tasks: BackgroundTasks,
     doc_type: str = Form(...),
     file: UploadFile = File(...),
     settings: Settings = Depends(get_settings),
     repository: DocumentRepository = Depends(get_document_repository),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider_dep),
 ) -> DocumentRead:
     if doc_type not in ALLOWED_DOC_TYPES:
         raise HTTPException(
@@ -143,4 +172,13 @@ async def upload_organization_document(
         ) from error
 
     logger.info("Stored organization document %s for org %s", row.get("id"), org_id)
+
+    # Shared-KB docs have workflow_id=None; ingestion stores NULL-scoped chunks so
+    # they're retrievable across every workflow in the organization.
+    background_tasks.add_task(
+        run_ingestion_safely,
+        row,
+        store=repository,
+        embedding_provider=embedding_provider,
+    )
     return DocumentRead.model_validate(row)

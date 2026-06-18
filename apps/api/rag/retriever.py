@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Protocol
 
 
@@ -31,3 +32,11 @@ class Retriever:
             },
         )
 
+
+class SupabaseChunkSearchClient:
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    async def rpc(self, function_name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        response = await asyncio.to_thread(self._client.rpc(function_name, params).execute)
+        return response.data or []

@@ -17,6 +17,7 @@ from db.supabase_client import create_supabase_client
 from models.schemas import WorkflowCreate, WorkflowRead, WorkflowReportRead, WorkflowRunRequest
 from rag.embeddings import EmbeddingProvider
 from rag.ingestion import run_ingestion_safely
+from rag.retriever import Retriever, SupabaseChunkSearchClient
 from routes.documents import get_document_repository, get_embedding_provider_dep
 from workflows.executor import WorkflowExecutor
 from workflows.templates import get_template
@@ -29,6 +30,16 @@ def get_workflow_repository(
 ) -> WorkflowRepository:
     try:
         return SupabaseWorkflowRepository(create_supabase_client(settings))
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+
+def get_retriever(settings: Settings = Depends(get_settings)) -> Retriever:
+    try:
+        return Retriever(SupabaseChunkSearchClient(create_supabase_client(settings)))
     except RuntimeError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -129,6 +140,8 @@ async def run_workflow(
     payload: WorkflowRunRequest,
     repository: WorkflowRepository = Depends(get_workflow_repository),
     documents: DocumentRepository = Depends(get_document_repository),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider_dep),
+    retriever: Retriever = Depends(get_retriever),
 ) -> dict[str, str]:
     workflow = await repository.get_workflow(workflow_id)
     if workflow is None:
@@ -145,6 +158,20 @@ async def run_workflow(
         except ValueError:
             template = None
         selected_agents = template.agent_slugs if template else []
+        retrieved_context = []
+        retrieval_error = None
+        try:
+            query_embedding = await embedding_provider.embed_query(
+                workflow.get("user_request") or workflow["title"]
+            )
+        except RuntimeError as error:
+            retrieval_error = str(error)
+        else:
+            retrieved_context = await retriever.search(
+                query_embedding=query_embedding,
+                org_id=str(workflow["org_id"]),
+                workflow_id=str(workflow["id"]),
+            )
         result = await WorkflowExecutor().run(
             {
                 "workflow_id": str(workflow["id"]),
@@ -154,7 +181,7 @@ async def run_workflow(
                 "band_room_id": workflow.get("band_room_id"),
                 "artifacts": artifacts,
                 "selected_agents": selected_agents,
-                "retrieved_context": [],
+                "retrieved_context": retrieved_context,
                 "agent_findings": [],
                 "policy_verdict": None,
                 "final_report": None,
@@ -162,6 +189,8 @@ async def run_workflow(
             }
         )
         result["payload"]["force_reindex_requested"] = payload.force_reindex
+        if retrieval_error:
+            result["payload"]["retrieval_error"] = retrieval_error
         saved = await repository.save_workflow_report(
             workflow=workflow,
             report=result["report"],

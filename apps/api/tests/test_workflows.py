@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 
 from main import app
 from models.schemas import WorkflowCreate
-from routes.documents import get_document_repository
-from routes.workflows import get_workflow_repository
+from routes.documents import get_document_repository, get_embedding_provider_dep
+from routes.workflows import get_retriever, get_workflow_repository
 
 
 class FakeWorkflowRepository:
@@ -94,6 +94,29 @@ class FakeDocumentRepository:
         ]
 
 
+class FakeEmbeddingProvider:
+    dimensions = 2
+
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.1, 0.2] for _ in texts]
+
+    async def embed_query(self, text: str) -> list[float]:
+        self.queries.append(text)
+        return [0.1, 0.2]
+
+
+class FakeRetriever:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    async def search(self, **kwargs) -> list[dict]:
+        self.calls.append(kwargs)
+        return [{"id": uuid4(), "content": "shared policy context"}]
+
+
 def test_list_workflows_without_org_scope_is_empty() -> None:
     repository = FakeWorkflowRepository()
     app.dependency_overrides[get_workflow_repository] = lambda: repository
@@ -167,8 +190,12 @@ def test_delete_missing_workflow_returns_not_found() -> None:
 def test_run_workflow_persists_review_report() -> None:
     repository = FakeWorkflowRepository()
     documents = FakeDocumentRepository(repository.org_id, repository.workflow_id)
+    embedding_provider = FakeEmbeddingProvider()
+    retriever = FakeRetriever()
     app.dependency_overrides[get_workflow_repository] = lambda: repository
     app.dependency_overrides[get_document_repository] = lambda: documents
+    app.dependency_overrides[get_embedding_provider_dep] = lambda: embedding_provider
+    app.dependency_overrides[get_retriever] = lambda: retriever
     client = TestClient(app)
     try:
         run = client.post(f"/workflows/{repository.workflow_id}/run", json={})
@@ -186,6 +213,12 @@ def test_run_workflow_persists_review_report() -> None:
     assert workflow_report.json()["requires_human_review"] is True
     assert report.status_code == 200
     assert "1 shared Knowledge file" in report.json()["summary"]
+    assert "Retrieval returned 1 relevant chunk" in report.json()["summary"]
+    assert embedding_provider.queries == ["Assess candidate against role"]
+    assert retriever.calls[0]["org_id"] == str(repository.org_id)
+    assert retriever.calls[0]["workflow_id"] == str(repository.workflow_id)
+    assert repository.report is not None
+    assert repository.report["report_payload"]["retrieved_context_count"] == 1
 
 
 def test_get_missing_workflow_report_returns_not_found() -> None:

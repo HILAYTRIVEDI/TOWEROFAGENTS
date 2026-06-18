@@ -59,12 +59,15 @@ marked `failed` rather than silently indexed.
 each document's existing chunks are replaced). It returns `202 Accepted` with
 `{ "status": "accepted", "workflow_id", "documents": "<count>" }`, or `404` for an unknown workflow.
 
-`POST /workflows/{workflow_id}/run` creates an MVP review packet from workflow metadata and the
-current organization-scoped document inventory, persists it to `workflow_reports`, and moves the
+`POST /workflows/{workflow_id}/run` creates an MVP review packet from workflow metadata, the
+current organization-scoped document inventory, and retrieved chunks from workflow-specific plus
+organization-shared Knowledge documents. It persists the packet to `workflow_reports` and moves the
 workflow to `awaiting_review`. It returns `202 Accepted` with
 `{ "status": "awaiting_review", "workflow_id", "report_id" }`, or `404` for an unknown workflow.
 This endpoint does not yet perform LangGraph specialist-agent execution or LLM synthesis; generated
-reports are explicitly `human_review_required` and do not invent evidence chunk IDs.
+reports are explicitly `human_review_required` and do not invent evidence chunk IDs. Retrieved chunk
+IDs are stored in `report_payload` for downstream agent execution, not exposed as formal citations
+until synthesis is implemented.
 
 `GET /workflows/{workflow_id}/report` returns the persisted report for a workflow. `GET
 /reports/{report_id}` returns the same report by ID. Both return `404` when the report is missing.

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from models.schemas import WorkflowCreate
+from routes.documents import get_document_repository
 from routes.workflows import get_workflow_repository
 
 
@@ -12,12 +13,16 @@ class FakeWorkflowRepository:
     def __init__(self) -> None:
         self.workflow_id = uuid4()
         self.org_id = uuid4()
+        self.report_id = uuid4()
+        self.statuses: list[str] = []
+        self.report: dict | None = None
 
     def row(self) -> dict:
         return {
             "id": self.workflow_id,
             "org_id": self.org_id,
             "title": "Candidate review",
+            "user_request": "Assess candidate against role",
             "template_slug": "hr-candidate-screening",
             "status": "draft",
             "band_room_id": None,
@@ -39,6 +44,54 @@ class FakeWorkflowRepository:
 
     async def delete_workflow(self, workflow_id: UUID) -> bool:
         return workflow_id == self.workflow_id
+
+    async def update_workflow_status(self, workflow_id: UUID, status: str) -> None:
+        if workflow_id == self.workflow_id:
+            self.statuses.append(status)
+
+    async def save_workflow_report(self, *, workflow: dict, report, payload: dict) -> dict:
+        self.report = report.model_dump(mode="json")
+        self.report["id"] = self.report_id
+        self.report["report_payload"] = payload
+        return self.report
+
+    async def get_workflow_report(self, workflow_id: UUID) -> dict | None:
+        return self.report if workflow_id == self.workflow_id else None
+
+    async def get_report(self, report_id: UUID) -> dict | None:
+        return self.report if report_id == self.report_id else None
+
+
+class FakeDocumentRepository:
+    def __init__(self, org_id: UUID, workflow_id: UUID) -> None:
+        self.org_id = org_id
+        self.workflow_id = workflow_id
+
+    async def list_organization_documents(self, org_id: UUID) -> list[dict]:
+        if org_id != self.org_id:
+            return []
+        return [
+            {
+                "id": uuid4(),
+                "org_id": org_id,
+                "workflow_id": None,
+                "doc_type": "policy",
+                "filename": "handbook.pdf",
+                "mime_type": "application/pdf",
+                "status": "indexed",
+                "created_at": datetime.now(UTC),
+            },
+            {
+                "id": uuid4(),
+                "org_id": org_id,
+                "workflow_id": self.workflow_id,
+                "doc_type": "resume",
+                "filename": "resume.pdf",
+                "mime_type": "application/pdf",
+                "status": "uploaded",
+                "created_at": datetime.now(UTC),
+            },
+        ]
 
 
 def test_list_workflows_without_org_scope_is_empty() -> None:
@@ -105,6 +158,41 @@ def test_delete_missing_workflow_returns_not_found() -> None:
     app.dependency_overrides[get_workflow_repository] = lambda: repository
     try:
         response = TestClient(app).delete(f"/workflows/{uuid4()}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+
+
+def test_run_workflow_persists_review_report() -> None:
+    repository = FakeWorkflowRepository()
+    documents = FakeDocumentRepository(repository.org_id, repository.workflow_id)
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    app.dependency_overrides[get_document_repository] = lambda: documents
+    client = TestClient(app)
+    try:
+        run = client.post(f"/workflows/{repository.workflow_id}/run", json={})
+        workflow_report = client.get(f"/workflows/{repository.workflow_id}/report")
+        report = client.get(f"/reports/{repository.report_id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert run.status_code == 202
+    assert run.json()["status"] == "awaiting_review"
+    assert run.json()["report_id"] == str(repository.report_id)
+    assert repository.statuses == ["running", "awaiting_review"]
+    assert workflow_report.status_code == 200
+    assert workflow_report.json()["recommendation"] == "human_review_required"
+    assert workflow_report.json()["requires_human_review"] is True
+    assert report.status_code == 200
+    assert "1 shared Knowledge file" in report.json()["summary"]
+
+
+def test_get_missing_workflow_report_returns_not_found() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).get(f"/workflows/{repository.workflow_id}/report")
     finally:
         app.dependency_overrides.clear()
 

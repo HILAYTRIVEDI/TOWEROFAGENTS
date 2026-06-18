@@ -42,6 +42,21 @@ class DocumentRepository(Protocol):
 
     async def delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool: ...
 
+    async def list_workflow_documents(self, workflow_id: UUID) -> list[dict[str, Any]]: ...
+
+    async def download_document(self, storage_path: str) -> bytes: ...
+
+    async def set_document_status(self, document_id: Any, status: str) -> None: ...
+
+    async def replace_document_chunks(
+        self,
+        *,
+        document_id: Any,
+        org_id: Any,
+        workflow_id: Any | None,
+        chunks: list[dict[str, Any]],
+    ) -> int: ...
+
 
 def _safe_object_name(filename: str) -> str:
     base = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
@@ -85,6 +100,27 @@ class SupabaseDocumentRepository:
 
     async def delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool:
         return await asyncio.to_thread(self._delete_organization_document, org_id, document_id)
+
+    async def list_workflow_documents(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self._list_workflow_documents, workflow_id)
+
+    async def download_document(self, storage_path: str) -> bytes:
+        return await asyncio.to_thread(self._download_document, storage_path)
+
+    async def set_document_status(self, document_id: Any, status: str) -> None:
+        await asyncio.to_thread(self._set_document_status, document_id, status)
+
+    async def replace_document_chunks(
+        self,
+        *,
+        document_id: Any,
+        org_id: Any,
+        workflow_id: Any | None,
+        chunks: list[dict[str, Any]],
+    ) -> int:
+        return await asyncio.to_thread(
+            self._replace_document_chunks, document_id, org_id, workflow_id, chunks
+        )
 
     def _store_document(
         self,
@@ -227,3 +263,60 @@ class SupabaseDocumentRepository:
             .execute()
         )
         return bool(deleted.data)
+
+    def _list_workflow_documents(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        # Ingestion needs storage_path + filename; org scope comes from the row so
+        # chunks stay tenant-scoped without trusting client input.
+        response = (
+            self._client.table("documents")
+            .select("id,org_id,workflow_id,filename,storage_path,status")
+            .eq("workflow_id", str(workflow_id))
+            .execute()
+        )
+        return response.data or []
+
+    def _download_document(self, storage_path: str) -> bytes:
+        return self._client.storage.from_(self._bucket).download(storage_path)
+
+    def _set_document_status(self, document_id: Any, status: str) -> None:
+        (
+            self._client.table("documents")
+            .update({"status": status})
+            .eq("id", str(document_id))
+            .execute()
+        )
+
+    def _replace_document_chunks(
+        self,
+        document_id: Any,
+        org_id: Any,
+        workflow_id: Any | None,
+        chunks: list[dict[str, Any]],
+    ) -> int:
+        # Re-indexing is idempotent: drop the document's existing chunks first so a
+        # re-upload never leaves stale vectors behind.
+        (
+            self._client.table("document_chunks")
+            .delete()
+            .eq("document_id", str(document_id))
+            .execute()
+        )
+        if not chunks:
+            return 0
+
+        rows = [
+            {
+                "document_id": str(document_id),
+                "org_id": str(org_id),
+                # NULL workflow_id marks an org-shared chunk that match_document_chunks
+                # returns across every workflow in the organization.
+                "workflow_id": None if workflow_id is None else str(workflow_id),
+                "chunk_index": chunk["chunk_index"],
+                "content": chunk["content"],
+                "metadata": chunk.get("metadata") or {},
+                "embedding": chunk["embedding"],
+            }
+            for chunk in chunks
+        ]
+        self._client.table("document_chunks").insert(rows).execute()
+        return len(rows)

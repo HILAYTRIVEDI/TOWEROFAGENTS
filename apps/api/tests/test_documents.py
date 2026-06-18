@@ -22,6 +22,7 @@ class FakeDocumentRepository:
     ) -> None:
         self.known_workflow = known_workflow
         self.known_org = known_org
+        self.document_id = uuid4()
         self.calls: list[dict] = []
 
     async def store_document(self, **kwargs) -> dict:
@@ -70,6 +71,10 @@ class FakeDocumentRepository:
             }
         ]
 
+    async def delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool:
+        self.calls.append({"org_id": org_id, "document_id": document_id})
+        return org_id == self.known_org and document_id == self.document_id
+
 
 def _upload(workflow_id: UUID, repository, **form):
     app.dependency_overrides[get_document_repository] = lambda: repository
@@ -91,6 +96,14 @@ def _list_org(org_id: UUID, repository):
     app.dependency_overrides[get_document_repository] = lambda: repository
     try:
         return TestClient(app).get(f"/knowledge/{org_id}/documents")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _delete_org(org_id: UUID, document_id: UUID, repository):
+    app.dependency_overrides[get_document_repository] = lambda: repository
+    try:
+        return TestClient(app).delete(f"/knowledge/{org_id}/documents/{document_id}")
     finally:
         app.dependency_overrides.clear()
 
@@ -135,6 +148,22 @@ def test_list_organization_documents_returns_shared_files() -> None:
     body = response.json()
     assert body[0]["org_id"] == str(org_id)
     assert body[0]["workflow_id"] is None
+
+
+def test_delete_organization_document_returns_no_content() -> None:
+    org_id = uuid4()
+    repository = FakeDocumentRepository(known_org=org_id)
+    response = _delete_org(org_id, repository.document_id, repository)
+    assert response.status_code == 204
+    assert repository.calls[0] == {
+        "org_id": org_id,
+        "document_id": repository.document_id,
+    }
+
+
+def test_delete_unknown_organization_document_returns_404() -> None:
+    response = _delete_org(uuid4(), uuid4(), FakeDocumentRepository(known_org=uuid4()))
+    assert response.status_code == 404
 
 
 def test_upload_rejects_invalid_doc_type() -> None:
@@ -261,14 +290,18 @@ class _FakeTable:
         self._name = name
         self._store = store
         self._insert = None
+        self._delete = False
+        self._filters = {}
 
     def select(self, *_):
         return self
 
-    def eq(self, *_):
+    def eq(self, field, value):
+        self._filters[field] = value
         return self
 
-    def is_(self, *_):
+    def is_(self, field, value):
+        self._filters[field] = None if value == "null" else value
         return self
 
     def limit(self, *_):
@@ -286,6 +319,7 @@ class _FakeTable:
         return self
 
     def delete(self):
+        self._delete = True
         self._store.setdefault("deletes", []).append(self._name)
         return self
 
@@ -300,13 +334,24 @@ class _FakeTable:
             row.setdefault("created_at", datetime.now(UTC).isoformat())
             self._store["inserted"] = row
             return _FakeResult([row])
+        if self._delete:
+            documents = self._store.get("documents", [])
+            deleted = [row for row in documents if self._matches(row)]
+            self._store["documents"] = [row for row in documents if not self._matches(row)]
+            self._store["deleted"] = deleted
+            return _FakeResult(deleted)
         if self._name == "workflows":
             return _FakeResult([{"org_id": self._store["org_id"]}])
         if self._name == "organizations":
             return _FakeResult([{"id": self._store["org_id"]}])
         if self._name == "documents":
-            return _FakeResult(self._store.get("documents", []))
+            return _FakeResult(
+                [row for row in self._store.get("documents", []) if self._matches(row)]
+            )
         return _FakeResult([])
+
+    def _matches(self, row):
+        return all(row.get(field) == value for field, value in self._filters.items())
 
 
 class _FakeBucket:
@@ -316,6 +361,10 @@ class _FakeBucket:
     def upload(self, path, file, file_options=None):
         self._store["upload"] = {"path": path, "size": len(file), "options": file_options}
         return {"path": path}
+
+    def remove(self, paths):
+        self._store["removed"] = paths
+        return paths
 
 
 class _FakeStorage:
@@ -385,8 +434,9 @@ def test_repository_uploads_shared_org_file() -> None:
     assert row["metadata"] == {"scope": "organization"}
 
 
-def test_repository_lists_shared_org_files_only() -> None:
+def test_repository_lists_org_files() -> None:
     org_id = uuid4()
+    workflow_id = uuid4()
     store: dict = {
         "org_id": str(org_id),
         "documents": [
@@ -399,6 +449,16 @@ def test_repository_lists_shared_org_files_only() -> None:
                 "mime_type": "application/pdf",
                 "status": "uploaded",
                 "created_at": datetime.now(UTC).isoformat(),
+            },
+            {
+                "id": str(uuid4()),
+                "org_id": str(org_id),
+                "workflow_id": str(workflow_id),
+                "doc_type": "resume",
+                "filename": "resume.pdf",
+                "mime_type": "application/pdf",
+                "status": "uploaded",
+                "created_at": datetime.now(UTC).isoformat(),
             }
         ],
     }
@@ -407,6 +467,56 @@ def test_repository_lists_shared_org_files_only() -> None:
     rows = asyncio.run(repository.list_organization_documents(org_id))
 
     assert rows == store["documents"]
+
+
+def test_repository_deletes_org_file_and_storage_object() -> None:
+    org_id = uuid4()
+    document_id = uuid4()
+    storage_path = f"{org_id}/shared/file.pdf"
+    store: dict = {
+        "org_id": str(org_id),
+        "documents": [
+            {
+                "id": str(document_id),
+                "org_id": str(org_id),
+                "workflow_id": None,
+                "storage_path": storage_path,
+            }
+        ],
+    }
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+
+    deleted = asyncio.run(repository.delete_organization_document(org_id, document_id))
+
+    assert deleted is True
+    assert store["removed"] == [storage_path]
+    assert store["deleted"][0]["id"] == str(document_id)
+    assert store["documents"] == []
+
+
+def test_repository_deletes_workflow_file_when_it_belongs_to_org() -> None:
+    org_id = uuid4()
+    document_id = uuid4()
+    workflow_id = uuid4()
+    storage_path = f"{workflow_id}/file.pdf"
+    store: dict = {
+        "org_id": str(org_id),
+        "documents": [
+            {
+                "id": str(document_id),
+                "org_id": str(org_id),
+                "workflow_id": str(workflow_id),
+                "storage_path": storage_path,
+            }
+        ],
+    }
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+
+    deleted = asyncio.run(repository.delete_organization_document(org_id, document_id))
+
+    assert deleted is True
+    assert store["removed"] == [storage_path]
+    assert store["documents"] == []
 
 
 def test_repository_replace_chunks_scopes_workflow_chunks() -> None:

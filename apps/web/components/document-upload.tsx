@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-import { uploadOrganizationDocument, uploadWorkflowDocument } from "@/lib/api";
+import {
+  deleteOrganizationDocument,
+  uploadOrganizationDocument,
+  uploadWorkflowDocument,
+} from "@/lib/api";
 import type { DocumentRead, DocumentType } from "@/lib/types";
 
 // Mirror the server-side cap (MAX_UPLOAD_BYTES default in apps/api/core/config.py)
@@ -33,6 +37,7 @@ type DocumentUploadProps =
 export function DocumentUpload(props: DocumentUploadProps) {
   const [docType, setDocType] = useState<DocumentType>("resume");
   const [uploading, setUploading] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState<DocumentRead[]>(
     props.initialDocuments ?? [],
@@ -72,6 +77,22 @@ export function DocumentUpload(props: DocumentUploadProps) {
       setError(cause instanceof Error ? cause.message : "Upload failed.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleRemove(document: DocumentRead) {
+    if (props.scope !== "organization") {
+      return;
+    }
+    setError(null);
+    setRemovingId(document.id);
+    try {
+      await deleteOrganizationDocument(props.orgId, document.id);
+      setUploaded((current) => current.filter((item) => item.id !== document.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Remove failed.");
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -133,16 +154,31 @@ export function DocumentUpload(props: DocumentUploadProps) {
               <div>
                 <p className="workflow-row-title">{document.filename}</p>
                 <p className="workflow-row-meta">
-                  {document.doc_type} · {document.mime_type ?? "unknown type"}
+                  {document.doc_type} · {document.mime_type ?? "unknown type"} ·{" "}
+                  {document.workflow_id ? "Workflow file" : "Shared knowledge"}
                 </p>
               </div>
-              <span className={`status-badge status-${document.status}`}>
-                {document.status}
-              </span>
+              <div className="workflow-row-trailing">
+                <span className={`status-badge status-${document.status}`}>
+                  {document.status}
+                </span>
+                {props.scope === "organization" ? (
+                  <button
+                    className="button danger"
+                    disabled={removingId === document.id}
+                    onClick={() => void handleRemove(document)}
+                    type="button"
+                  >
+                    {removingId === document.id ? "Removing..." : "Remove"}
+                  </button>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
-      ) : null}
+      ) : (
+        <p className="notice">No documents uploaded yet.</p>
+      )}
     </section>
   );
 }

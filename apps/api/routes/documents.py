@@ -182,3 +182,25 @@ async def upload_organization_document(
         embedding_provider=embedding_provider,
     )
     return DocumentRead.model_validate(row)
+
+
+@router.delete(
+    "/knowledge/{org_id}/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@router.delete(
+    "/organizations/{org_id}/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_organization_document(
+    org_id: UUID,
+    document_id: UUID,
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> None:
+    deleted = await repository.delete_organization_document(org_id, document_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    logger.info("Deleted organization document %s for org %s", document_id, org_id)

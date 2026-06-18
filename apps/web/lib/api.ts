@@ -127,6 +127,29 @@ export function uploadOrganizationDocument(
   });
 }
 
+export async function deleteOrganizationDocument(
+  orgId: string,
+  documentId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${apiBaseUrl()}/knowledge/${orgId}/documents/${documentId}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { detail?: string }
+      | null;
+    throw new ApiError(
+      body?.detail ?? `API request failed (${response.status})`,
+      response.status,
+    );
+  }
+}
+
 export function getWorkflowReport(workflowId: string): Promise<WorkflowReport> {
   return apiRequest(`/workflows/${workflowId}/report`, { cache: "no-store" });
 }

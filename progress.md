@@ -1,60 +1,74 @@
-# ATower Of Agents — Implementation Status
+# ATower Of Agents - Implementation Status
 
-_Last assessed: 2026-06-14. Backend test suite: **32 passed**._
+_Last assessed: 2026-06-18. Latest focused checks in this worktree: Python syntax check passed, `git diff --check` passed. Full `pytest` / frontend `tsc` were not run here because this worktree does not have its own `.venv` or `node_modules`._
 
-The repo is a **deliberate bootstrap/scaffold**: contracts, typed boundaries, and
-infra are real and tested, but the actual product workflow (agent reasoning +
-LangGraph execution) is intentionally stubbed with honest `NotImplementedError` /
-`501` responses.
+The repo is still a deliberate bootstrap/scaffold: contracts, typed boundaries,
+storage, catalog wiring, and UI shell are real, but product workflow execution
+and indexing are not yet wired end to end.
 
-## ✅ Implemented & working
+## Implemented And Working
 
-### Infrastructure / scaffold
-- Monorepo layout (pnpm workspace, `docker-compose.yml`, Dockerfiles for web + api), `.env.example`, full docs set in `docs/`.
-- FastAPI app (`main.py`) with CORS, logging, health, all routers wired.
-- Pydantic schemas (`models/schemas.py`) and TS types (`apps/web/lib/types.ts`) as the shared contract.
+### Infrastructure / Scaffold
+- Monorepo layout, `docker-compose.yml`, Dockerfiles for web + api, `.env.example`, and docs are present.
+- FastAPI app has CORS, logging, health, routers, and local dev origins configured.
+- Next.js app shell has dashboard, workflows, agents, Knowledge, docs, and reports areas.
+- Favicon is wired through `/favicon.svg` and `/favicon.ico`.
 
-### Document upload + RAG primitives (real)
-- `routes/documents.py` → `db/documents.py`: real Supabase Storage upload + `documents` row insert, with org-scope resolution, path-traversal-safe object names, size/empty/type validation, sha256 hashing. Confidential-safe logging.
-- `rag/parser.py` (txt/md/pdf/docx), `rag/chunker.py` (word-window + overlap), `rag/retriever.py` (pgvector `match_document_chunks` RPC wrapper). All real and tested.
+### Agent And Band Setup
+- API agent registry has 9 declared agents.
+- Live Supabase agent catalog was checked and contains all 9 agent rows with Band handles:
+  `workflow-router`, `rag-retriever`, `policy-guardian`, `final-decision`,
+  `resume-jd-matcher`, `bias-reviewer`, `interview-planner`, `lead-qualifier`,
+  and `engineering-reviewer`.
+- Band remote-agent support exists via `band/coordinator.py` and `band/remote_agents.py`.
+- Local `.env` in the main checkout had specialist Band credentials for the non-router agents; the Supabase catalog itself includes `@workflow-router`.
 
-### Band integration (real live path)
-- `band/coordinator.py` + `band/remote_agents.py`: a genuine standalone process using the `thenvoi` SDK + LangGraph adapter over a Featherless model. Coordinator + specialist agents join rooms and reply to mentions. Honest config validation (clear errors when creds missing).
-- `band/client.py`: in-process `MockBandClient` + explicitly-not-implemented `BandSDKClient`.
+### Knowledge / Documents
+- `POST /knowledge/{org_id}/documents` uploads organization-shared Knowledge documents to private Supabase Storage and inserts `documents.workflow_id = null`.
+- `GET /knowledge/{org_id}/documents` now lists all org-scoped document rows, including shared Knowledge documents and workflow-specific files.
+- `DELETE /knowledge/{org_id}/documents/{document_id}` removes an org-scoped document row and its private Storage object.
+- Existing workflow upload remains available at `POST /workflows/{workflow_id}/documents`.
+- The Knowledge page lists files, shows whether each row is `Shared knowledge` or `Workflow file`, and includes a Remove button.
+- Upload validation still covers doc type, empty file, size cap, path-safe object names, content hash, and confidential-safe logging.
 
-### LLM router
-- `llm/router.py` routes tasks to AIML / Featherless / mock, raising explicit errors when keys are missing.
-
-### Supabase
-- Migrations `001_init`, `002_vector_search`, `003_documents_storage` + `seed.sql`.
+### RAG Primitives
+- Parser, chunker, retriever contracts exist.
+- Supabase vector search RPC exists.
+- Retrieval design now expects workflow-specific chunks plus org-shared chunks.
 
 ### Workflow CRUD
-- `routes/workflows.py`: create / list / get are real (Supabase-backed).
+- Workflow create/list/get/delete are Supabase-backed.
+- Workflow detail can still upload workflow-specific artifacts.
 
-### Frontend
-- Next.js app with dashboard, workflows (list/new/detail), agents, knowledge-base, reports pages; `lib/api.ts` fully wired to all backend endpoints; document-upload component + workflow-create form.
+## Pending / Not Yet Implemented
 
-### Agent registry
-- 9 agents declared with metadata + instruction prompts (`/agents` endpoint serves them).
-
-## ❌ Remaining / stubbed (by design)
-
-| Area | State |
+| Area | Remaining Work |
 |---|---|
-| `workflows/executor.py` | `NotImplementedError` |
-| `workflows/graph.py` (LangGraph) | `NotImplementedError` — node order planned only |
-| All 9 agents | `ScaffoldAgent.run()` → `NotImplementedError` (only metadata/prompts exist) |
-| `POST /workflows/{id}/run` & `/index` | `501 Not Implemented` |
-| `GET /workflows/{id}/report` & `/reports/{id}` | `501` — no report persistence |
-| Embeddings provider | `UnconfiguredEmbeddingProvider` raises — no real embedding model wired |
-| In-process Band SDK posting | Not implemented (only the standalone coordinator process is live) |
+| Supabase migration | Apply `supabase/migrations/004_organization_documents.sql` to live Supabase. |
+| Worktree dependencies | Create/install this worktree's `.venv` and `node_modules`; do not share mutable dependency folders between worktrees. |
+| Full verification | Run `pnpm test:api`, `pnpm typecheck`, and `pnpm build` after dependencies are installed. |
+| Document indexing | Parse uploaded docs, chunk them, generate embeddings, insert `document_chunks`, and update document status to `indexed` or `failed`. |
+| Knowledge reuse in workflows | Workflow runs should retrieve both workflow-specific files and org Knowledge files without re-upload. |
+| Embeddings provider | Replace mock/unconfigured embedding behavior with a real provider configured to `EMBEDDING_DIMENSIONS=1536`. |
+| Workflow index endpoint | Replace `POST /workflows/{id}/index` `501` with real indexing orchestration. |
+| Workflow run endpoint | Replace `POST /workflows/{id}/run` `501` with LangGraph execution. |
+| Agent execution | Implement actual `run()` behavior for the HR screening agents first. |
+| Findings and reports | Persist agent findings, generate workflow reports, and serve report endpoints. |
+| Band workflow audit | Create/use Band rooms per workflow, add relevant participants, post progress/finding messages, and persist `band_messages`. |
+| Auth/RLS | Replace temporary env org scope with Supabase auth-derived org scope and harden production RLS policies. |
+| UI polish | Add Knowledge filters/search/date/size columns if needed, and clarify destructive delete behavior. |
 
-## Explicitly out of scope (per AGENTS.md "Do Not Build Yet")
-RBAC, billing, production queues, OAuth, Slack/Teams, vendor crawling, analytics, general approval engine.
+## Explicitly Out Of Scope For Bootstrap
 
-## Bottom line
-The "control plane" (upload → store → chunk/retrieve scaffolding, Band
-collaboration, CRUD, dashboard) is built and tested. The **"brain"** — actual
-agent execution, the LangGraph workflow, real embeddings, and report generation —
-is the main remaining work, plus connecting indexing/retrieval into a runnable
-end-to-end HR Candidate Screening flow.
+Per `AGENTS.md`: full RBAC, billing, production queues, OAuth integrations,
+Slack/Teams, vendor crawling, complex analytics, perfect parsing, and a general
+approval engine.
+
+## Bottom Line
+
+The control-plane foundation is in place: agents are cataloged, Band setup is
+recognized, private document storage works, and the Knowledge dashboard can
+upload/list/remove org-scoped files. The main remaining work is to apply the DB
+migration, wire indexing and embeddings, then connect Knowledge retrieval into
+the LangGraph HR Candidate Screening workflow with persisted findings, Band
+audit messages, and reports.

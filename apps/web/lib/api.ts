@@ -93,7 +93,13 @@ export async function deleteWorkflow(workflowId: string): Promise<void> {
   }
 }
 
-export function uploadDocument(
+export function listOrganizationDocuments(orgId: string): Promise<DocumentRead[]> {
+  return apiRequest(`/knowledge/${orgId}/documents`, {
+    cache: "no-store",
+  });
+}
+
+export function uploadWorkflowDocument(
   workflowId: string,
   file: File,
   docType: DocumentType,
@@ -102,6 +108,20 @@ export function uploadDocument(
   body.set("doc_type", docType);
   body.set("file", file);
   return apiRequest(`/workflows/${workflowId}/documents`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function uploadOrganizationDocument(
+  orgId: string,
+  file: File,
+  docType: DocumentType,
+): Promise<DocumentRead> {
+  const body = new FormData();
+  body.set("doc_type", docType);
+  body.set("file", file);
+  return apiRequest(`/knowledge/${orgId}/documents`, {
     method: "POST",
     body,
   });

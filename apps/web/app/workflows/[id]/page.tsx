@@ -45,7 +45,7 @@ export default async function WorkflowDetailPage({
           </dl>
         </article>
         <article className="detail-card">
-          <DocumentUpload workflowId={workflow.id} />
+          <DocumentUpload scope="workflow" workflowId={workflow.id} />
         </article>
       </section>
       <EmptyState title="Execution is not implemented yet">

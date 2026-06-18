@@ -16,6 +16,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):3000",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,4 +32,3 @@ app.include_router(reports.router)
 @app.get("/", include_in_schema=False)
 async def root() -> dict[str, str]:
     return {"service": "tower-api", "docs": "/docs", "health": "/health"}
-

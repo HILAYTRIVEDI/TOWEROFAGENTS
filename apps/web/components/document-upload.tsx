@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { uploadDocument } from "@/lib/api";
+import { uploadOrganizationDocument, uploadWorkflowDocument } from "@/lib/api";
 import type { DocumentRead, DocumentType } from "@/lib/types";
 
 // Mirror the server-side cap (MAX_UPLOAD_BYTES default in apps/api/core/config.py)
@@ -18,11 +18,25 @@ const DOC_TYPES: { value: DocumentType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-export function DocumentUpload({ workflowId }: { workflowId: string }) {
+type DocumentUploadProps =
+  | {
+      scope: "workflow";
+      workflowId: string;
+      initialDocuments?: DocumentRead[];
+    }
+  | {
+      scope: "organization";
+      orgId: string;
+      initialDocuments?: DocumentRead[];
+    };
+
+export function DocumentUpload(props: DocumentUploadProps) {
   const [docType, setDocType] = useState<DocumentType>("resume");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploaded, setUploaded] = useState<DocumentRead[]>([]);
+  const [uploaded, setUploaded] = useState<DocumentRead[]>(
+    props.initialDocuments ?? [],
+  );
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +61,10 @@ export function DocumentUpload({ workflowId }: { workflowId: string }) {
 
     setUploading(true);
     try {
-      const document = await uploadDocument(workflowId, file, docType);
+      const document =
+        props.scope === "workflow"
+          ? await uploadWorkflowDocument(props.workflowId, file, docType)
+          : await uploadOrganizationDocument(props.orgId, file, docType);
       setUploaded((current) => [document, ...current]);
       form.reset();
       setDocType("resume");
@@ -63,13 +80,19 @@ export function DocumentUpload({ workflowId }: { workflowId: string }) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">Documents</p>
-          <h2>Upload workflow artifacts</h2>
+          <h2>
+            {props.scope === "workflow"
+              ? "Upload workflow artifacts"
+              : "Upload knowledge documents"}
+          </h2>
         </div>
       </div>
       <p className="workflow-row-meta">
-        Files are stored in a private Supabase bucket with status{" "}
-        <code>uploaded</code>. Parsing, chunking, and indexing are not yet
-        wired, so uploads are not searchable or used in any run.
+        {props.scope === "workflow"
+          ? "Files are stored privately for this workflow only."
+          : "Files are stored privately at the organization level and can be reused by workflows."}{" "}
+        Parsing, chunking, and indexing are not yet wired, so uploads are not
+        searchable or used in any run.
       </p>
 
       <form className="workflow-form" onSubmit={handleSubmit}>
@@ -110,7 +133,7 @@ export function DocumentUpload({ workflowId }: { workflowId: string }) {
               <div>
                 <p className="workflow-row-title">{document.filename}</p>
                 <p className="workflow-row-meta">
-                  {document.mime_type ?? "unknown type"}
+                  {document.doc_type} · {document.mime_type ?? "unknown type"}
                 </p>
               </div>
               <span className={`status-badge status-${document.status}`}>

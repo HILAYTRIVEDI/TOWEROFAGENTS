@@ -8,6 +8,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "ATower Of Agents",
   description: "Enterprise AI-agent workflow control tower",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -19,4 +22,3 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
-

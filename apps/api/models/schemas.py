@@ -59,7 +59,9 @@ class WorkflowRunRequest(BaseModel):
 
 class DocumentRead(BaseModel):
     id: UUID
-    workflow_id: UUID
+    org_id: UUID
+    workflow_id: UUID | None = None
+    doc_type: str
     filename: str
     mime_type: str | None = None
     status: str
@@ -100,4 +102,3 @@ class HealthResponse(BaseModel):
     status: str
     environment: str
     integrations: dict[str, str]
-

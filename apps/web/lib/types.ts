@@ -28,7 +28,9 @@ export type DocumentType = "resume" | "jd" | "policy" | "crm" | "code" | "other"
 
 export interface DocumentRead {
   id: string;
-  workflow_id: string;
+  org_id: string;
+  workflow_id?: string | null;
+  doc_type: DocumentType;
   filename: string;
   mime_type?: string | null;
   status: string;

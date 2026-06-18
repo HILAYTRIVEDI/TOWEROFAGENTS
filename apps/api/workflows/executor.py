@@ -23,12 +23,14 @@ class WorkflowExecutor:
             for artifact in state["artifacts"]
             if artifact.get("status") == "indexed"
         ]
+        retrieved_context = state["retrieved_context"]
 
         summary = (
             "MVP workflow run created a review packet from the current workflow "
             f"metadata and document inventory. It found {len(workflow_docs)} "
             f"workflow file(s), {len(shared_docs)} shared Knowledge file(s), and "
-            f"{len(indexed_docs)} indexed file(s). Specialist agent execution and "
+            f"{len(indexed_docs)} indexed file(s). Retrieval returned "
+            f"{len(retrieved_context)} relevant chunk(s). Specialist agent execution and "
             "LLM synthesis are not enabled yet, so this report requires human review."
         )
 
@@ -56,6 +58,10 @@ class WorkflowExecutor:
                     "shared_knowledge": len(shared_docs),
                     "indexed": len(indexed_docs),
                 },
+                "retrieved_context_count": len(retrieved_context),
+                "retrieved_chunk_ids": [
+                    str(chunk["id"]) for chunk in retrieved_context if chunk.get("id")
+                ],
                 "execution_mode": "mvp_review_packet",
             },
         }

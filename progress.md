@@ -45,6 +45,7 @@ workflow execution is not yet wired end to end.
 ### Workflow Reports
 - `POST /workflows/{id}/run` now persists an MVP review-required report and moves the workflow to `awaiting_review`.
 - `GET /workflows/{id}/report` and `GET /reports/{report_id}` now read persisted reports.
+- Workflow runs retrieve relevant chunks from workflow-specific documents and organization-shared Knowledge documents when embeddings are configured.
 - The current run path is intentionally conservative: it summarizes workflow/document inventory and does not fabricate agent verdicts or evidence chunk IDs.
 
 ## Pending / Not Yet Implemented
@@ -54,7 +55,6 @@ workflow execution is not yet wired end to end.
 | Supabase migration | Apply `supabase/migrations/004_organization_documents.sql` to live Supabase. |
 | Worktree dependencies | Create/install this worktree's `.venv` and `node_modules`; do not share mutable dependency folders between worktrees. |
 | Full verification | Run `pnpm test:api`, `pnpm typecheck`, and `pnpm build` after dependencies are installed. |
-| Knowledge retrieval in runs | Workflow runs should retrieve relevant chunks from both workflow-specific files and org Knowledge files without re-upload. |
 | Embeddings provider | Replace mock/unconfigured embedding behavior with a real provider configured to `EMBEDDING_DIMENSIONS=1536`. |
 | Workflow run endpoint | Replace MVP review-packet execution with LangGraph execution. |
 | Agent execution | Implement actual `run()` behavior for the HR screening agents first. |
@@ -74,7 +74,7 @@ approval engine.
 The control-plane foundation is in place: agents are cataloged, Band setup is
 recognized, private document storage works, the Knowledge dashboard can
 upload/list/remove org-scoped files, indexing is wired, and a workflow can now
-produce a persisted review-required report. The main remaining work is to apply
-the DB migration, configure real embeddings, then connect Knowledge retrieval
-into the LangGraph HR Candidate Screening workflow with specialist findings and
-Band audit messages.
+produce a persisted review-required report with retrieved Knowledge context. The
+main remaining work is to apply the DB migration, configure real embeddings,
+then connect the LangGraph HR Candidate Screening workflow with specialist
+findings and Band audit messages.

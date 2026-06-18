@@ -21,6 +21,9 @@ AGENT_TYPES = (
     EngineeringReviewerAgent,
 )
 
+# slug -> agent class; used by the executor to instantiate with a provider.
+AGENT_CLASS_BY_SLUG: dict[str, type] = {cls.slug: cls for cls in AGENT_TYPES}
+
 
 def list_agents() -> list[AgentDescriptor]:
     return [
@@ -32,4 +35,3 @@ def list_agents() -> list[AgentDescriptor]:
         )
         for agent in AGENT_TYPES
     ]
-

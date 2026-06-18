@@ -157,3 +157,21 @@ export function getWorkflowReport(workflowId: string): Promise<WorkflowReport> {
 export function getReport(reportId: string): Promise<WorkflowReport> {
   return apiRequest(`/reports/${reportId}`, { cache: "no-store" });
 }
+
+export function runWorkflow(
+  workflowId: string,
+  opts?: { forceReindex?: boolean },
+): Promise<{ status: string; workflow_id: string; report_id: string }> {
+  return apiRequest(`/workflows/${workflowId}/run`, {
+    method: "POST",
+    body: JSON.stringify({ force_reindex: opts?.forceReindex ?? false }),
+  });
+}
+
+export function indexWorkflow(
+  workflowId: string,
+): Promise<{ status: string; workflow_id: string; documents: DocumentRead[] }> {
+  return apiRequest(`/workflows/${workflowId}/index`, {
+    method: "POST",
+  });
+}

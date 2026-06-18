@@ -138,6 +138,7 @@ async def index_workflow(
 async def run_workflow(
     workflow_id: UUID,
     payload: WorkflowRunRequest,
+    settings: Settings = Depends(get_settings),
     repository: WorkflowRepository = Depends(get_workflow_repository),
     documents: DocumentRepository = Depends(get_document_repository),
     embedding_provider: EmbeddingProvider = Depends(get_embedding_provider_dep),
@@ -172,7 +173,7 @@ async def run_workflow(
                 org_id=str(workflow["org_id"]),
                 workflow_id=str(workflow["id"]),
             )
-        result = await WorkflowExecutor().run(
+        result = await WorkflowExecutor(settings=settings).run(
             {
                 "workflow_id": str(workflow["id"]),
                 "org_id": str(workflow["org_id"]),

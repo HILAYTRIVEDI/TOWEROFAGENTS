@@ -23,6 +23,8 @@ class AgentInput(BaseModel):
     context_chunks: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
     band_room_id: str | None = None
+    # Populated by the executor for final-decision only: serialized prior findings.
+    prior_findings: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AgentFinding(BaseModel):

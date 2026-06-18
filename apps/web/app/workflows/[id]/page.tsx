@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DocumentUpload } from "@/components/document-upload";
-import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
-import { ApiError, getWorkflow } from "@/lib/api";
+import { RunWorkflow } from "@/components/run-workflow";
+import { ApiError, getWorkflow, getWorkflowReport } from "@/lib/api";
 
 export default async function WorkflowDetailPage({
   params,
@@ -17,6 +17,12 @@ export default async function WorkflowDetailPage({
       notFound();
     }
     throw error;
+  });
+
+  // Attempt to fetch an existing report so we can link to it; 404 is fine.
+  const existingReport = await getWorkflowReport(id).catch((error) => {
+    if (error instanceof ApiError && error.status === 404) return null;
+    return null;
   });
 
   return (
@@ -48,11 +54,18 @@ export default async function WorkflowDetailPage({
           <DocumentUpload scope="workflow" workflowId={workflow.id} />
         </article>
       </section>
-      <EmptyState title="Execution is not implemented yet">
-        Uploaded files are stored privately, but indexing and workflow execution
-        still return 501. The UI will not claim that an agent review has run.{" "}
-        <Link href={`/reports/${workflow.id}`}>View report state</Link>.
-      </EmptyState>
+      <article className="detail-card">
+        <RunWorkflow workflowId={workflow.id} />
+        {existingReport ? (
+          <p className="workflow-row-meta" style={{ marginTop: "1rem" }}>
+            A report already exists for this workflow.{" "}
+            <Link href={`/reports/${existingReport.id}`}>
+              View latest report
+            </Link>
+            .
+          </p>
+        ) : null}
+      </article>
     </>
   );
 }

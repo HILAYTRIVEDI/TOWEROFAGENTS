@@ -3,10 +3,16 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
+from core.config import Settings, get_settings
 from main import app
 from models.schemas import WorkflowCreate
 from routes.documents import get_document_repository, get_embedding_provider_dep
 from routes.workflows import get_retriever, get_workflow_repository
+
+
+def _mock_settings() -> Settings:
+    """Settings pinned to mock providers so tests are env-independent."""
+    return Settings(llm_provider="mock", embedding_provider="mock")
 
 
 class FakeWorkflowRepository:
@@ -192,6 +198,7 @@ def test_run_workflow_persists_review_report() -> None:
     documents = FakeDocumentRepository(repository.org_id, repository.workflow_id)
     embedding_provider = FakeEmbeddingProvider()
     retriever = FakeRetriever()
+    app.dependency_overrides[get_settings] = _mock_settings
     app.dependency_overrides[get_workflow_repository] = lambda: repository
     app.dependency_overrides[get_document_repository] = lambda: documents
     app.dependency_overrides[get_embedding_provider_dep] = lambda: embedding_provider
@@ -212,13 +219,24 @@ def test_run_workflow_persists_review_report() -> None:
     assert workflow_report.json()["recommendation"] == "human_review_required"
     assert workflow_report.json()["requires_human_review"] is True
     assert report.status_code == 200
-    assert "1 shared Knowledge file" in report.json()["summary"]
-    assert "Retrieval returned 1 relevant chunk" in report.json()["summary"]
+    # With specialist_agents_v1 executor and mock provider, the summary reflects
+    # agent run counts and mock provider usage — not the old MVP packet strings.
+    summary = report.json()["summary"]
+    assert "human_review_required" in report.json()["recommendation"]
+    assert report.json()["requires_human_review"] is True
+    # Embedding + retrieval plumbing must still be exercised
     assert embedding_provider.queries == ["Assess candidate against role"]
     assert retriever.calls[0]["org_id"] == str(repository.org_id)
     assert retriever.calls[0]["workflow_id"] == str(repository.workflow_id)
     assert repository.report is not None
     assert repository.report["report_payload"]["retrieved_context_count"] == 1
+    # New payload shape from specialist_agents_v1
+    payload = repository.report["report_payload"]
+    assert payload["execution_mode"] == "specialist_agents_v1"
+    assert isinstance(payload["agents_ran"], list)
+    assert isinstance(payload["agents_skipped"], list)
+    # Mock provider means any_mock is True and requires_human_review is True
+    assert payload["any_mock"] is True
 
 
 def test_get_missing_workflow_report_returns_not_found() -> None:

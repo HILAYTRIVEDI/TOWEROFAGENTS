@@ -112,8 +112,7 @@ export function DocumentUpload(props: DocumentUploadProps) {
         {props.scope === "workflow"
           ? "Files are stored privately for this workflow only."
           : "Files are stored privately at the organization level and can be reused by workflows."}{" "}
-        Parsing, chunking, and indexing are not yet wired, so uploads are not
-        searchable or used in any run.
+        Documents are indexed for retrieval and used during workflow runs.
       </p>
 
       <form className="workflow-form" onSubmit={handleSubmit}>

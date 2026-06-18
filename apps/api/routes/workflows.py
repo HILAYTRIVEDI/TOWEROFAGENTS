@@ -1,4 +1,3 @@
-from typing import NoReturn
 from uuid import UUID
 
 from fastapi import (
@@ -19,6 +18,8 @@ from models.schemas import WorkflowCreate, WorkflowRead, WorkflowReportRead, Wor
 from rag.embeddings import EmbeddingProvider
 from rag.ingestion import run_ingestion_safely
 from routes.documents import get_document_repository, get_embedding_provider_dep
+from workflows.executor import WorkflowExecutor
+from workflows.templates import get_template
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -33,13 +34,6 @@ def get_workflow_repository(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error
-
-
-def execution_not_implemented() -> NoReturn:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Workflow indexing and execution are not implemented yet",
-    )
 
 
 @router.post("", response_model=WorkflowRead, status_code=status.HTTP_201_CREATED)
@@ -130,10 +124,70 @@ async def index_workflow(
 
 
 @router.post("/{workflow_id}/run", status_code=status.HTTP_202_ACCEPTED)
-async def run_workflow(workflow_id: UUID, payload: WorkflowRunRequest) -> dict[str, str]:
-    execution_not_implemented()
+async def run_workflow(
+    workflow_id: UUID,
+    payload: WorkflowRunRequest,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+    documents: DocumentRepository = Depends(get_document_repository),
+) -> dict[str, str]:
+    workflow = await repository.get_workflow(workflow_id)
+    if workflow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+
+    await repository.update_workflow_status(workflow_id, "running")
+    try:
+        artifacts = await documents.list_organization_documents(UUID(str(workflow["org_id"])))
+        try:
+            template = get_template(workflow["template_slug"]) if workflow.get("template_slug") else None
+        except ValueError:
+            template = None
+        selected_agents = template.agent_slugs if template else []
+        result = await WorkflowExecutor().run(
+            {
+                "workflow_id": str(workflow["id"]),
+                "org_id": str(workflow["org_id"]),
+                "user_request": workflow.get("user_request") or "",
+                "template_slug": workflow.get("template_slug"),
+                "band_room_id": workflow.get("band_room_id"),
+                "artifacts": artifacts,
+                "selected_agents": selected_agents,
+                "retrieved_context": [],
+                "agent_findings": [],
+                "policy_verdict": None,
+                "final_report": None,
+                "status": "running",
+            }
+        )
+        result["payload"]["force_reindex_requested"] = payload.force_reindex
+        saved = await repository.save_workflow_report(
+            workflow=workflow,
+            report=result["report"],
+            payload=result["payload"],
+        )
+        await repository.update_workflow_status(workflow_id, "awaiting_review")
+    except Exception:
+        await repository.update_workflow_status(workflow_id, "failed")
+        raise
+
+    return {
+        "status": "awaiting_review",
+        "workflow_id": str(workflow_id),
+        "report_id": str(saved["id"]),
+    }
 
 
 @router.get("/{workflow_id}/report", response_model=WorkflowReportRead)
-async def get_workflow_report(workflow_id: UUID) -> WorkflowReportRead:
-    execution_not_implemented()
+async def get_workflow_report(
+    workflow_id: UUID,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+) -> WorkflowReportRead:
+    report = await repository.get_workflow_report(workflow_id)
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow report not found",
+        )
+    return WorkflowReportRead.model_validate(report)

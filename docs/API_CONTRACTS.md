@@ -58,7 +58,16 @@ marked `failed` rather than silently indexed.
 `POST /workflows/{workflow_id}/index` re-indexes every document attached to the workflow (idempotent:
 each document's existing chunks are replaced). It returns `202 Accepted` with
 `{ "status": "accepted", "workflow_id", "documents": "<count>" }`, or `404` for an unknown workflow.
-`run` and report generation endpoints still return `501 Not Implemented`.
+
+`POST /workflows/{workflow_id}/run` creates an MVP review packet from workflow metadata and the
+current organization-scoped document inventory, persists it to `workflow_reports`, and moves the
+workflow to `awaiting_review`. It returns `202 Accepted` with
+`{ "status": "awaiting_review", "workflow_id", "report_id" }`, or `404` for an unknown workflow.
+This endpoint does not yet perform LangGraph specialist-agent execution or LLM synthesis; generated
+reports are explicitly `human_review_required` and do not invent evidence chunk IDs.
+
+`GET /workflows/{workflow_id}/report` returns the persisted report for a workflow. `GET
+/reports/{report_id}` returns the same report by ID. Both return `404` when the report is missing.
 
 `DELETE /knowledge/{org_id}/documents/{document_id}` removes an organization-scoped document and its
 private Storage object. It returns `204` on success and `404` when the document is missing or outside

@@ -3,8 +3,8 @@
 _Last assessed: 2026-06-18. Latest focused checks in this worktree: Python syntax check passed, `git diff --check` passed. Full `pytest` / frontend `tsc` were not run here because this worktree does not have its own `.venv` or `node_modules`._
 
 The repo is still a deliberate bootstrap/scaffold: contracts, typed boundaries,
-storage, catalog wiring, and UI shell are real, but product workflow execution
-and indexing are not yet wired end to end.
+storage, catalog wiring, indexing primitives, and UI shell are real, but product
+workflow execution is not yet wired end to end.
 
 ## Implemented And Working
 
@@ -35,10 +35,17 @@ and indexing are not yet wired end to end.
 - Parser, chunker, retriever contracts exist.
 - Supabase vector search RPC exists.
 - Retrieval design now expects workflow-specific chunks plus org-shared chunks.
+- Uploaded workflow and Knowledge documents schedule background ingestion.
+- `POST /workflows/{id}/index` re-indexes every workflow-attached document.
 
 ### Workflow CRUD
 - Workflow create/list/get/delete are Supabase-backed.
 - Workflow detail can still upload workflow-specific artifacts.
+
+### Workflow Reports
+- `POST /workflows/{id}/run` now persists an MVP review-required report and moves the workflow to `awaiting_review`.
+- `GET /workflows/{id}/report` and `GET /reports/{report_id}` now read persisted reports.
+- The current run path is intentionally conservative: it summarizes workflow/document inventory and does not fabricate agent verdicts or evidence chunk IDs.
 
 ## Pending / Not Yet Implemented
 
@@ -47,13 +54,11 @@ and indexing are not yet wired end to end.
 | Supabase migration | Apply `supabase/migrations/004_organization_documents.sql` to live Supabase. |
 | Worktree dependencies | Create/install this worktree's `.venv` and `node_modules`; do not share mutable dependency folders between worktrees. |
 | Full verification | Run `pnpm test:api`, `pnpm typecheck`, and `pnpm build` after dependencies are installed. |
-| Document indexing | Parse uploaded docs, chunk them, generate embeddings, insert `document_chunks`, and update document status to `indexed` or `failed`. |
-| Knowledge reuse in workflows | Workflow runs should retrieve both workflow-specific files and org Knowledge files without re-upload. |
+| Knowledge retrieval in runs | Workflow runs should retrieve relevant chunks from both workflow-specific files and org Knowledge files without re-upload. |
 | Embeddings provider | Replace mock/unconfigured embedding behavior with a real provider configured to `EMBEDDING_DIMENSIONS=1536`. |
-| Workflow index endpoint | Replace `POST /workflows/{id}/index` `501` with real indexing orchestration. |
-| Workflow run endpoint | Replace `POST /workflows/{id}/run` `501` with LangGraph execution. |
+| Workflow run endpoint | Replace MVP review-packet execution with LangGraph execution. |
 | Agent execution | Implement actual `run()` behavior for the HR screening agents first. |
-| Findings and reports | Persist agent findings, generate workflow reports, and serve report endpoints. |
+| Findings and reports | Persist specialist agent findings and synthesize richer workflow reports from retrieved evidence. |
 | Band workflow audit | Create/use Band rooms per workflow, add relevant participants, post progress/finding messages, and persist `band_messages`. |
 | Auth/RLS | Replace temporary env org scope with Supabase auth-derived org scope and harden production RLS policies. |
 | UI polish | Add Knowledge filters/search/date/size columns if needed, and clarify destructive delete behavior. |
@@ -67,8 +72,9 @@ approval engine.
 ## Bottom Line
 
 The control-plane foundation is in place: agents are cataloged, Band setup is
-recognized, private document storage works, and the Knowledge dashboard can
-upload/list/remove org-scoped files. The main remaining work is to apply the DB
-migration, wire indexing and embeddings, then connect Knowledge retrieval into
-the LangGraph HR Candidate Screening workflow with persisted findings, Band
-audit messages, and reports.
+recognized, private document storage works, the Knowledge dashboard can
+upload/list/remove org-scoped files, indexing is wired, and a workflow can now
+produce a persisted review-required report. The main remaining work is to apply
+the DB migration, configure real embeddings, then connect Knowledge retrieval
+into the LangGraph HR Candidate Screening workflow with specialist findings and
+Band audit messages.

@@ -40,6 +40,8 @@ class DocumentRepository(Protocol):
 
     async def list_organization_documents(self, org_id: UUID) -> list[dict[str, Any]]: ...
 
+    async def delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool: ...
+
 
 def _safe_object_name(filename: str) -> str:
     base = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
@@ -80,6 +82,9 @@ class SupabaseDocumentRepository:
 
     async def list_organization_documents(self, org_id: UUID) -> list[dict[str, Any]]:
         return await asyncio.to_thread(self._list_organization_documents, org_id)
+
+    async def delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool:
+        return await asyncio.to_thread(self._delete_organization_document, org_id, document_id)
 
     def _store_document(
         self,
@@ -194,8 +199,31 @@ class SupabaseDocumentRepository:
             self._client.table("documents")
             .select("id,org_id,workflow_id,doc_type,filename,mime_type,status,created_at")
             .eq("org_id", str(org_id))
-            .is_("workflow_id", "null")
             .order("created_at", desc=True)
             .execute()
         )
         return response.data or []
+
+    def _delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool:
+        document = (
+            self._client.table("documents")
+            .select("storage_path")
+            .eq("id", str(document_id))
+            .eq("org_id", str(org_id))
+            .limit(1)
+            .execute()
+        )
+        if not document.data:
+            return False
+
+        storage_path = document.data[0]["storage_path"]
+        self._client.storage.from_(self._bucket).remove([storage_path])
+
+        deleted = (
+            self._client.table("documents")
+            .delete()
+            .eq("id", str(document_id))
+            .eq("org_id", str(org_id))
+            .execute()
+        )
+        return bool(deleted.data)

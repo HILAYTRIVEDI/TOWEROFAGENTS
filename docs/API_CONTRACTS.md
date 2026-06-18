@@ -41,9 +41,23 @@ documents that should be available across workflows.
 Both upload endpoints return `201` with `DocumentRead` (`id`, `org_id`, `workflow_id`, `doc_type`,
 `filename`, `mime_type`, `status`, `created_at`). They return `422` for an unknown `doc_type` or
 empty file, `413` above the configured `MAX_UPLOAD_BYTES`, `404` for an unknown workflow or
-organization, and `503` when Supabase is unconfigured. Parsing, chunking, and embedding are not
-performed here — the row lands in `uploaded` status. Index, run, and report generation endpoints
-still return `501 Not Implemented`.
+organization, and `503` when Supabase is unconfigured.
+
+After the `201` response, both endpoints schedule ingestion as a background task: the stored
+document is downloaded, parsed (`txt|md|pdf|docx`), chunked, embedded via the configured embedding
+provider, and written to `document_chunks`. The `documents.status` field transitions
+`uploaded → parsing → indexed`, or `→ failed` if parsing/embedding fails (the failure is recorded on
+the row and surfaced via the document read endpoints, never raised to the upload caller).
+Workflow-scoped chunks carry the owning `workflow_id`; organization-shared chunks are stored with
+`workflow_id: null` so `match_document_chunks` returns them across every workflow in the
+organization. Embedding vectors are exactly `EMBEDDING_DIMENSIONS` long, matching the `vector(N)`
+column. When the embedding provider is unconfigured, ingestion fails loudly and the document is
+marked `failed` rather than silently indexed.
+
+`POST /workflows/{workflow_id}/index` re-indexes every document attached to the workflow (idempotent:
+each document's existing chunks are replaced). It returns `202 Accepted` with
+`{ "status": "accepted", "workflow_id", "documents": "<count>" }`, or `404` for an unknown workflow.
+`run` and report generation endpoints still return `501 Not Implemented`.
 
 ## Core Shapes
 

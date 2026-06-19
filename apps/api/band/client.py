@@ -1,3 +1,10 @@
+"""Band client abstractions (room creation / generic message posting).
+
+For conversational @mention posting during workflow runs, see
+band.run_audit.WorkflowRoomAuditor — it handles the per-specialist mention
+chain and honest mock/real/failed mode tracking.
+"""
+
 import logging
 from dataclasses import dataclass
 from typing import Protocol

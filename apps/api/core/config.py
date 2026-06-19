@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Band's public defaults when these are unset.
     thenvoi_ws_url: str | None = None
     thenvoi_rest_url: str | None = None
+    # Optional handle for the reviewer @mentioned by the final agent at end of
+    # a workflow run (e.g. "alice" for @alice). When unset the coordinator or
+    # first-roster agent is used as a fallback. Never hardcode a value here.
+    band_reviewer_handle: str | None = None
 
     @property
     def cors_origins(self) -> list[str]:

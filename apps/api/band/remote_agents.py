@@ -50,9 +50,10 @@ Operating rules:
 - Never invent facts, citations, evidence IDs, tool results, or completed work.
 - State missing evidence and uncertainty plainly.
 - Agent output is advisory; high-impact decisions require human review.
-- ATower workflow execution and document indexing are not implemented yet.
-  Never claim a workflow ran; direct users to create a draft and upload the
-  required artifacts in the ATower dashboard.
+- ATower workflows execute via the LangGraph runtime. Findings are posted to
+  the Band room by the in-process auditor (band.run_audit). When BAND_MODE=sdk
+  with credentials, those posts are real; otherwise they are explicitly labelled
+  mock. Never invent results or claim a run succeeded when one did not.
 """
 
 

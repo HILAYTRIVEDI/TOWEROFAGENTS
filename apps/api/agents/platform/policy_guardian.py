@@ -42,7 +42,14 @@ class PolicyGuardianAgent(BaseAgent):
             "(c) no policy evidence found.\n"
             "- If policy concerns exist, set severity to 'warning'; otherwise 'info'.\n"
             "- Always recommend human escalation for final hiring decisions.\n"
-            "- Produce a concise policy note summarizing your finding."
+            "OUTPUT FORMAT:\n"
+            "- Reply with a single concise policy note of 1-3 plain-text sentences.\n"
+            "- Do NOT use markdown, headings, bold (**), bullet points, numbered lists, "
+            "or section labels like 'Findings Summary'.\n"
+            "- Write it as one short paragraph that a reader can scan in a report card, "
+            "for example: 'No policy conflicts found. Skills X and Y are claimed but not "
+            "verified in the provided documents. Human review recommended before any "
+            "hiring decision.'"
         )
         user_msg = (
             f"Task: {agent_input.task}\n\n"

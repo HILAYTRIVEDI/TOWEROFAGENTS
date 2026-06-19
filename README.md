@@ -2,7 +2,7 @@
 
 ATower Of Agents is a control tower for enterprise AI-agent workflows. Operators will be able to upload company artifacts, assemble specialist agents in a Band room, retrieve evidence through Supabase RAG, and receive an auditable decision packet.
 
-The repository currently provides the **base setup**: architecture and API contracts, agent instructions, Supabase migrations, mock-safe integration boundaries, a FastAPI shell, and a Next.js dashboard. Product workflow execution is the next development phase.
+The repository provides the architecture and API contracts, agent instructions, Supabase migrations, mock-safe integration boundaries, a FastAPI backend, and a Next.js dashboard. The **HR Candidate Screening** workflow now runs end to end: documents are ingested into pgvector, specialist agents execute against retrieved evidence, and an auditable decision packet is persisted and rendered. Live in-process Band posting and API-driven room management are the remaining integration gaps.
 
 ## Quick Start
 
@@ -200,23 +200,28 @@ Available now:
 - Live Band SDK supervisor for the coordinator and nine specialist roles
 - Parser, chunker, embedding, and retrieval boundaries
 - Supabase schema, pgvector search function, and seed catalog
-- Dashboard, workflow, agent, knowledge, and report route shells
+- Dashboard, workflow, agent, knowledge, and report routes
 - Document upload from the workflow detail page to a private Supabase Storage
-  bucket (files land in `uploaded` status; not yet parsed or indexed)
+  bucket, followed by ingestion into pgvector (status advances
+  `uploaded` → `parsing` → `indexed`, or `failed` on error)
+- Document ingestion pipeline: parse → chunk → embed → persist scoped chunks
+  (`rag/ingestion.py`), with shared knowledge-base chunks stored NULL-scoped
+- Workflow execution and persistence: `POST /workflows/{id}/run` runs the
+  specialist agents against retrieved evidence and saves an evidence-backed
+  decision packet (recommendation, strengths, gaps, interview questions, and a
+  plain-text policy note) to Supabase
 
 Not implemented yet:
 
-- Workflow persistence and execution
-- Artifact parsing, chunking, embedding, and indexing (upload only, so far)
 - Automatic real Band room creation and participant management from the API
 - In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` supervisor
 - HR workflow execution from the coordinator itself; workflow runs happen through the API
 
 Unfinished product paths must fail honestly rather than fabricate data.
 
-## Planned MVP
+## MVP Workflow
 
-The first complete workflow will be **HR Candidate Screening**:
+The first complete workflow is **HR Candidate Screening**:
 
 1. Upload a resume, job description, and hiring policy.
 2. Create a Band room with specialist agents.

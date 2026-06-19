@@ -34,6 +34,37 @@ def _extract_questions(content: str) -> list[str]:
     return questions
 
 
+def _clean_note(content: str, max_chars: int = 500) -> str:
+    """Flatten an LLM note into a single scannable plain-text paragraph.
+
+    Strips markdown artifacts (headings, bold, bullets, list markers) and
+    collapses whitespace so report cards never show a wall of structured text.
+    Truncates at a sentence boundary when possible so output never cuts
+    mid-sentence.
+    """
+    text = content.strip()
+    # Drop markdown emphasis and inline-code markers.
+    text = re.sub(r"[*_`#>]+", "", text)
+    # Strip leading list markers (-, *, +, "1.", "1)") at the start of any line.
+    text = re.sub(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+", "", text)
+    # Collapse all runs of whitespace (including newlines) into single spaces.
+    text = re.sub(r"\s+", " ", text).strip()
+    # Strip residual inline list markers left over once newlines collapsed,
+    # e.g. "...context. 2. Uncertain..." or "...acknowledged - Skills...".
+    text = re.sub(r"\s+\d+[.)]\s+", " ", text)
+    text = re.sub(r"\s+[-*+]\s+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    if len(text) <= max_chars:
+        return text
+    # Truncate, then back up to the last sentence end within the limit.
+    head = text[:max_chars]
+    cut = max(head.rfind(". "), head.rfind("! "), head.rfind("? "))
+    if cut > max_chars // 2:
+        return head[: cut + 1].strip()
+    return head.rstrip() + "…"
+
+
 class WorkflowExecutor:
     def __init__(self, settings: Settings | None = None) -> None:
         # settings is optional so existing call-sites that omit it still work
@@ -108,8 +139,8 @@ class WorkflowExecutor:
             if f.finding_type == _INTERVIEW_PLAN_TYPE and "[PLACEHOLDER" not in f.content:
                 interview_questions = _extract_questions(f.content)
             if f.finding_type == _POLICY_CHECK_TYPE and "[PLACEHOLDER" not in f.content:
-                # Use first 500 chars of policy content as the policy note
-                policy_note = f.content[:500]
+                # Flatten to a clean, scannable plain-text note for the report card.
+                policy_note = _clean_note(f.content)
             if f.finding_type == "final_decision":
                 final_finding = f
 

@@ -1,3 +1,5 @@
+import logging
+from collections import Counter
 from uuid import UUID
 
 from fastapi import (
@@ -10,11 +12,20 @@ from fastapi import (
     status,
 )
 
+from band.client import create_band_client
+from band.room_orchestrator import RoomOrchestrator
+from band.run_audit import WorkflowRoomAuditor
 from core.config import Settings, get_settings
 from db.documents import DocumentRepository
 from db.queries import SupabaseWorkflowRepository, WorkflowRepository
 from db.supabase_client import create_supabase_client
-from models.schemas import WorkflowCreate, WorkflowRead, WorkflowReportRead, WorkflowRunRequest
+from models.schemas import (
+    WorkflowBandSessionRequest,
+    WorkflowCreate,
+    WorkflowRead,
+    WorkflowReportRead,
+    WorkflowRunRequest,
+)
 from rag.embeddings import EmbeddingProvider
 from rag.ingestion import run_ingestion_safely
 from rag.retriever import Retriever, SupabaseChunkSearchClient
@@ -23,6 +34,7 @@ from workflows.executor import WorkflowExecutor
 from workflows.templates import get_template
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
+logger = logging.getLogger(__name__)
 
 
 def get_workflow_repository(
@@ -99,6 +111,53 @@ async def delete_workflow(
             detail="Workflow not found",
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{workflow_id}/band-session", response_model=WorkflowRead)
+async def set_workflow_band_session(
+    workflow_id: UUID,
+    payload: WorkflowBandSessionRequest,
+    settings: Settings = Depends(get_settings),
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+) -> WorkflowRead:
+    workflow = await repository.get_workflow(workflow_id)
+    if workflow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+
+    band_room_id = (payload.band_room_id or "").strip()
+    if not band_room_id and payload.create_mock_session:
+        if settings.band_mode != "mock":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Automatic real Band room creation is not implemented. "
+                    "Create a Band room in Band.ai and paste its room ID."
+                ),
+            )
+        template = get_template(workflow["template_slug"]) if workflow.get("template_slug") else None
+        agent_names = template.agent_slugs if template else []
+        band_room_id = await RoomOrchestrator(create_band_client(settings)).open_workflow_room(
+            title=f"ATower discussion: {workflow['title']}",
+            goal=workflow.get("user_request") or workflow["title"],
+            agent_names=agent_names,
+        )
+
+    if not band_room_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide a Band room ID or request a mock session.",
+        )
+
+    updated = await repository.update_workflow_band_room(workflow_id, band_room_id)
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+    return WorkflowRead.model_validate(updated)
 
 
 @router.post("/{workflow_id}/index", status_code=status.HTTP_202_ACCEPTED)
@@ -192,11 +251,66 @@ async def run_workflow(
         result["payload"]["force_reindex_requested"] = payload.force_reindex
         if retrieval_error:
             result["payload"]["retrieval_error"] = retrieval_error
+        band_room_id = workflow.get("band_room_id") or settings.band_default_room_id
+        ordered_findings = result.get("ordered_findings", [])
+        result["payload"]["band_audit"] = {
+            "room_id": band_room_id,
+            "message_count": 0,
+            "modes": {},
+        }
         saved = await repository.save_workflow_report(
             workflow=workflow,
             report=result["report"],
             payload=result["payload"],
         )
+        if band_room_id and ordered_findings:
+            try:
+                posted_messages = await WorkflowRoomAuditor(settings).post_discussion(
+                    room_id=band_room_id,
+                    ordered_findings=ordered_findings,
+                )
+                modes = Counter(message.mode for message in posted_messages)
+                result["payload"]["band_audit"] = {
+                    "room_id": band_room_id,
+                    "message_count": len(posted_messages),
+                    "modes": dict(modes),
+                }
+                for message in posted_messages:
+                    await repository.save_band_message(
+                        {
+                            "org_id": str(workflow["org_id"]),
+                            "workflow_id": str(workflow["id"]),
+                            "band_message_id": message.band_message_id,
+                            "band_room_id": band_room_id,
+                            "sender_type": "agent",
+                            "sender_ref": message.sender_slug,
+                            "content": message.content,
+                            "message_type": "message",
+                            "raw_payload": message.raw_payload
+                            | {
+                                "mentions": message.mentions,
+                                "sender_agent_id": message.sender_agent_id,
+                            },
+                        }
+                    )
+                saved = await repository.save_workflow_report(
+                    workflow=workflow,
+                    report=result["report"],
+                    payload=result["payload"],
+                )
+            except Exception as error:  # noqa: BLE001
+                logger.warning("Band audit failed for workflow %s: %s", workflow_id, error)
+                result["payload"]["band_audit"] = {
+                    "room_id": band_room_id,
+                    "message_count": 0,
+                    "modes": {"failed": len(ordered_findings)},
+                    "error": str(error),
+                }
+                saved = await repository.save_workflow_report(
+                    workflow=workflow,
+                    report=result["report"],
+                    payload=result["payload"],
+                )
         await repository.update_workflow_status(workflow_id, "awaiting_review")
     except Exception:
         await repository.update_workflow_status(workflow_id, "failed")

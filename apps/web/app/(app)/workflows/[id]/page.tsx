@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BandSessionForm } from "@/components/band-session-form";
 import { DocumentUpload } from "@/components/document-upload";
 import { PageHeader } from "@/components/page-header";
 import { RunWorkflow } from "@/components/run-workflow";
@@ -54,6 +55,17 @@ export default async function WorkflowDetailPage({
           <DocumentUpload scope="workflow" workflowId={workflow.id} />
         </article>
       </section>
+      <article className="detail-card">
+        <p className="eyebrow">Band discussion session</p>
+        <p className="workflow-row-meta" style={{ marginBottom: "1rem" }}>
+          The next run posts the agent handoff discussion, findings, and final
+          synthesis into this room.
+        </p>
+        <BandSessionForm
+          currentRoomId={workflow.band_room_id}
+          workflowId={workflow.id}
+        />
+      </article>
       <article className="detail-card">
         <RunWorkflow workflowId={workflow.id} />
         {existingReport ? (

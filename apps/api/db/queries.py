@@ -30,6 +30,10 @@ class WorkflowRepository(Protocol):
 
     async def update_workflow_status(self, workflow_id: UUID, status: str) -> None: ...
 
+    async def update_workflow_band_room(
+        self, workflow_id: UUID, band_room_id: str
+    ) -> dict[str, Any] | None: ...
+
     async def save_workflow_report(
         self,
         *,
@@ -41,6 +45,8 @@ class WorkflowRepository(Protocol):
     async def get_workflow_report(self, workflow_id: UUID) -> dict[str, Any] | None: ...
 
     async def get_report(self, report_id: UUID) -> dict[str, Any] | None: ...
+
+    async def save_band_message(self, message: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class SupabaseWorkflowRepository:
@@ -67,6 +73,11 @@ class SupabaseWorkflowRepository:
     async def update_workflow_status(self, workflow_id: UUID, status: str) -> None:
         await asyncio.to_thread(self._update_workflow_status, workflow_id, status)
 
+    async def update_workflow_band_room(
+        self, workflow_id: UUID, band_room_id: str
+    ) -> dict[str, Any] | None:
+        return await asyncio.to_thread(self._update_workflow_band_room, workflow_id, band_room_id)
+
     async def save_workflow_report(
         self,
         *,
@@ -81,6 +92,9 @@ class SupabaseWorkflowRepository:
 
     async def get_report(self, report_id: UUID) -> dict[str, Any] | None:
         return await asyncio.to_thread(self._get_report, report_id)
+
+    async def save_band_message(self, message: dict[str, Any]) -> dict[str, Any]:
+        return await asyncio.to_thread(self._save_band_message, message)
 
     def _create_workflow(self, payload: WorkflowCreate) -> dict[str, Any]:
         template_id = None
@@ -106,6 +120,7 @@ class SupabaseWorkflowRepository:
                     "title": payload.title,
                     "user_request": payload.user_request,
                     "status": "draft",
+                    "band_room_id": payload.band_room_id,
                 }
             )
             .execute()
@@ -157,6 +172,19 @@ class SupabaseWorkflowRepository:
             .execute()
         )
 
+    def _update_workflow_band_room(
+        self, workflow_id: UUID, band_room_id: str
+    ) -> dict[str, Any] | None:
+        response = (
+            self._client.table("workflows")
+            .update({"band_room_id": band_room_id})
+            .eq("id", str(workflow_id))
+            .execute()
+        )
+        if not response.data:
+            return None
+        return self._get_workflow(workflow_id)
+
     def _save_workflow_report(
         self,
         workflow: dict[str, Any],
@@ -205,6 +233,12 @@ class SupabaseWorkflowRepository:
             .execute()
         )
         return response.data[0] if response.data else None
+
+    def _save_band_message(self, message: dict[str, Any]) -> dict[str, Any]:
+        response = self._client.table("band_messages").insert(message).execute()
+        if not response.data:
+            raise RuntimeError("Supabase band_messages insert returned no data")
+        return response.data[0]
 
     @staticmethod
     def _normalize_workflow(row: dict[str, Any]) -> dict[str, Any]:

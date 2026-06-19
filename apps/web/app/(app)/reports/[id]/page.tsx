@@ -42,6 +42,10 @@ export default async function ReportPage({
     report.fit_score != null
       ? `${Math.round(report.fit_score * 100)}%`
       : "Not scored";
+  const bandAudit = report.report_payload?.band_audit;
+  const bandModes = Object.entries(bandAudit?.modes ?? {});
+  const bandMessageCount = bandAudit?.message_count ?? 0;
+  const bandRoom = bandAudit?.room_id ?? "Not configured";
 
   return (
     <>
@@ -78,6 +82,37 @@ export default async function ReportPage({
           </p>
         </article>
       </section>
+
+      <article className="detail-card">
+        <p className="eyebrow">Band audit</p>
+        <section className="detail-grid" style={{ marginBottom: 0 }}>
+          <div>
+            <p style={{ fontSize: "1.35rem", fontWeight: 700 }}>
+              {bandMessageCount} message{bandMessageCount === 1 ? "" : "s"}
+            </p>
+            <p className="workflow-row-meta">Room: {bandRoom}</p>
+          </div>
+          <div>
+            {bandModes.length > 0 ? (
+              <ul className="workflow-list">
+                {bandModes.map(([mode, count]) => (
+                  <li className="workflow-row" key={mode}>
+                    <span className={`status-badge status-${mode}`}>{mode}</span>
+                    <strong>{count}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="notice">No Band audit messages were posted for this run.</p>
+            )}
+            {bandAudit?.error ? (
+              <p className="notice error" style={{ marginTop: "0.75rem" }}>
+                {bandAudit.error}
+              </p>
+            ) : null}
+          </div>
+        </section>
+      </article>
 
       <section className="detail-grid">
         <article className="detail-card">

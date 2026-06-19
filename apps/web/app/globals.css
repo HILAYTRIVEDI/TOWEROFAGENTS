@@ -349,6 +349,32 @@ h3 {
   padding: 30px;
 }
 
+.band-session-panel,
+.inline-form {
+  display: grid;
+  gap: 14px;
+}
+
+.inline-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.inline-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--green-dark);
+  font-weight: 750;
+}
+
+.inline-form input {
+  width: 100%;
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .upload-form {
   display: grid;
   gap: 16px;

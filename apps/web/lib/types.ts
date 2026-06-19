@@ -12,6 +12,7 @@ export interface WorkflowCreate {
   title: string;
   user_request: string;
   template_slug?: string | null;
+  band_room_id?: string | null;
 }
 
 export interface Workflow {
@@ -63,4 +64,16 @@ export interface WorkflowReport {
   policy_note?: string | null;
   evidence_chunk_ids: string[];
   requires_human_review: boolean;
+  report_payload?: {
+    band_audit?: {
+      room_id?: string | null;
+      message_count?: number;
+      modes?: Record<string, number>;
+      error?: string;
+    };
+    agents_ran?: string[];
+    agents_skipped?: string[];
+    any_mock?: boolean;
+    [key: string]: unknown;
+  };
 }

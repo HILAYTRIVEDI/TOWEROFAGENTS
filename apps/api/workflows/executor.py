@@ -184,6 +184,7 @@ class WorkflowExecutor:
 
         return {
             "report": report,
+            "ordered_findings": list(zip(ran_slugs, findings, strict=True)),
             "payload": {
                 "execution_mode": "specialist_agents_v1",
                 "selected_agents": state["selected_agents"],

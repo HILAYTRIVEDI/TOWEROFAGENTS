@@ -76,6 +76,16 @@ export function createWorkflow(payload: WorkflowCreate): Promise<Workflow> {
   });
 }
 
+export function setWorkflowBandSession(
+  workflowId: string,
+  payload: { band_room_id?: string | null; create_mock_session?: boolean },
+): Promise<Workflow> {
+  return apiRequest(`/workflows/${workflowId}/band-session`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function deleteWorkflow(workflowId: string): Promise<void> {
   const response = await fetch(`${apiBaseUrl()}/workflows/${workflowId}`, {
     method: "DELETE",

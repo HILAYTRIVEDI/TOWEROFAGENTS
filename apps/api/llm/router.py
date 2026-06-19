@@ -1,7 +1,6 @@
 from core.config import Settings
 from llm.aiml_client import AIMLClient
 from llm.base import ChatProvider, ChatResult
-from llm.featherless_client import FeatherlessClient
 
 
 class MockChatProvider:
@@ -29,18 +28,13 @@ class LLMRouter:
                 self._settings.aiml_default_model,
             )
         if provider == "featherless":
-            if not self._settings.featherless_api_key:
-                raise RuntimeError("FEATHERLESS_API_KEY is not configured")
-            return FeatherlessClient(
-                self._settings.featherless_api_key,
-                self._settings.featherless_default_model,
+            raise RuntimeError(
+                "Featherless is disabled for this deployment. Set LLM_PROVIDER=aiml "
+                "and configure AIML_API_KEY/AIML_DEFAULT_MODEL."
             )
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
     def _provider_name_for_task(self, task: str) -> str:
         if self._settings.llm_provider != "auto":
             return self._settings.llm_provider
-        if task in {"verification", "bias_review", "risk_review"}:
-            return "featherless"
         return "aiml"
-

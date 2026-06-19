@@ -29,13 +29,6 @@ class Settings(BaseSettings):
 
     aiml_api_key: str | None = None
     aiml_default_model: str | None = None
-    featherless_api_key: str | None = None
-    featherless_default_model: str | None = None
-    featherless_base_url: str = "https://api.featherless.ai/v1"
-    # Tool-capable model for the live Band coordinator. Defaults to
-    # featherless_default_model when unset. The Band LangGraph adapter sends
-    # replies via platform tools, so this model MUST support OpenAI tool calling.
-    featherless_tool_model: str | None = None
     llm_provider: str = "mock"
 
     embedding_provider: str = "mock"
@@ -63,4 +56,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

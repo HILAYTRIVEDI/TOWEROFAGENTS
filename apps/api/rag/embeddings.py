@@ -63,7 +63,7 @@ class MockEmbeddingProvider:
 
 
 class OpenAICompatibleEmbeddingProvider:
-    """OpenAI-compatible embeddings (OpenAI, AIML API, Featherless).
+    """OpenAI-compatible embeddings (OpenAI or AIML API).
 
     All three expose the same `/embeddings` contract, so one async client with a
     configurable base_url covers every real provider.
@@ -106,16 +106,13 @@ def get_embedding_provider(settings) -> EmbeddingProvider:
     if provider == "mock":
         return MockEmbeddingProvider(dimensions=dimensions)
 
-    if provider in {"openai", "aiml", "featherless"}:
+    if provider in {"openai", "aiml"}:
         if provider == "openai":
             api_key = getattr(settings, "openai_api_key", None)
             base_url = None
-        elif provider == "aiml":
+        else:
             api_key = settings.aiml_api_key
             base_url = "https://api.aimlapi.com/v1"
-        else:  # featherless
-            api_key = settings.featherless_api_key
-            base_url = settings.featherless_base_url
 
         model = settings.embedding_model
         if not api_key or not model:
@@ -126,5 +123,8 @@ def get_embedding_provider(settings) -> EmbeddingProvider:
             dimensions=dimensions,
             base_url=base_url,
         )
+
+    if provider == "featherless":
+        return UnconfiguredEmbeddingProvider(dimensions=dimensions)
 
     return UnconfiguredEmbeddingProvider(dimensions=dimensions)

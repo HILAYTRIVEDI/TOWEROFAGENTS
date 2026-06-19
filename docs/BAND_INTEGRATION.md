@@ -1,13 +1,62 @@
 # Band Integration
 
-Band is the visible collaboration and audit layer. Each workflow creates or reuses a room, posts the workflow goal and assignments, receives agent status/finding messages, and publishes the final summary. Message metadata is mirrored into `band_messages`.
+Band is the visible collaboration and audit layer. Each workflow can use its own
+room, or fall back to `BAND_DEFAULT_ROOM_ID`. HR screening runs post one concise
+specialist finding message per executed agent and mirror the metadata into
+`band_messages`.
 
 `BandClient` is the adapter contract:
 
 - `MockBandClient` creates local IDs and logs clearly labeled mock messages.
 - `BandSDKClient` will wrap the real SDK and must fail as unconfigured until implemented.
 
-The backend chooses a client from `BAND_MODE`. No caller should branch on SDK details.
+The generic `BandClient` remains the room/generic-message adapter. Workflow-run
+audit posting uses `band.run_audit.WorkflowRoomAuditor` instead because each
+specialist message must be sent under that specialist's own Band API key.
+
+## Workflow run audit
+
+`POST /workflows/{id}/run` executes the HR candidate-screening specialists,
+persists the review report, then posts a conversational audit into Band when a
+room is available:
+
+1. Room selection is `workflow.band_room_id` first, then `BAND_DEFAULT_ROOM_ID`.
+2. The poster sends one message per executed specialist finding, in run order.
+3. Each non-final specialist @mentions the next executed specialist.
+4. The final specialist @mentions `BAND_REVIEWER_HANDLE` when set, otherwise the
+   coordinator (`BAND_AGENT_ID`) or first executed specialist.
+5. Every posted/skipped/failed message is persisted to `band_messages` with
+   `sender_type='agent'`, `sender_ref=<agent slug>`, `content`, mentions, and
+   sanitized raw payload.
+
+Mode semantics are intentionally honest:
+
+| Mode | Meaning |
+|---|---|
+| `real` | `BAND_MODE=sdk`, specialist credentials exist, and Band returned HTTP 2xx. `band_message_id` is populated when Band returns one. |
+| `mock` | `BAND_MODE` is not `sdk`, or that specialist has no credentials. No network call is made. |
+| `skipped` | No room ID was supplied to the poster. No network call is made. |
+| `failed` | Band/network returned an error. The workflow run still completes and the failed audit row is persisted honestly. |
+
+Band audit failure must never flip a workflow run to `failed`; the report payload
+records a `band_audit` summary with counts by mode.
+
+### Separate discussion sessions
+
+Each workflow can have its own Band discussion room/session. Operators can paste
+an existing Band room ID during workflow creation or on the workflow detail page.
+The next workflow run posts the process discussion and decision handoff into that
+room instead of the shared default.
+
+The backend endpoint is `POST /workflows/{id}/band-session`:
+
+- `{ "band_room_id": "..." }` assigns an existing real Band room/session.
+- `{ "create_mock_session": true }` creates a mock room only when
+  `BAND_MODE=mock`.
+
+Automatic real Band room creation from the request-scoped API path is not
+implemented. In `BAND_MODE=sdk`, create the room in Band.ai, add the coordinator,
+reviewer, and specialists as participants, then paste the room ID into ATower.
 
 ## Live agents
 
@@ -20,17 +69,17 @@ construction and coordinator behavior.
 
 It uses the official Band SDK (`band-sdk[langgraph]`, imported as `thenvoi`):
 
-- `ChatOpenAI` (langchain-openai) pointed at the configured OpenAI-compatible
-  provider: AIML API when `LLM_PROVIDER=aiml`, otherwise Featherless.
+- `ChatOpenAI` (langchain-openai) pointed at AIML API as the configured
+  OpenAI-compatible provider.
 - `LangGraphAdapter(llm=..., checkpointer=InMemorySaver(), custom_section=...)`
   with ATower-specific instructions.
 - `Agent.create(adapter=..., agent_id=..., api_key=..., ws_url=..., rest_url=...)`
   then `await agent.run()`.
 
-**Honesty contract:** the coordinator can chat and coordinate, but HR workflow
-execution is not implemented (`/workflows/{id}/run` returns 501). Its instructions
-forbid claiming a screening/retrieval/decision happened; it directs users to create
-the workflow and upload artifacts instead.
+**Honesty contract:** the coordinator can chat and coordinate, but the API run
+path is the source of truth for HR screening execution. Remote agents must not
+claim a workflow ran unless `/workflows/{id}/run` actually completed it. Mock
+posts are labelled as mock and failed posts are labelled as failed.
 
 The specialist catalog contains:
 
@@ -51,10 +100,7 @@ The specialist catalog contains:
 1. In `.env`, set:
    - `BAND_MODE=sdk`
    - `BAND_AGENT_ID` and `BAND_API_KEY` (the remote agent's credentials)
-   - A tool-capable model provider:
-     - `LLM_PROVIDER=aiml`, `AIML_API_KEY`, and `AIML_DEFAULT_MODEL`; or
-     - `LLM_PROVIDER=featherless`, `FEATHERLESS_API_KEY`, and a model via
-       `FEATHERLESS_TOOL_MODEL` (falls back to `FEATHERLESS_DEFAULT_MODEL`).
+   - `LLM_PROVIDER=aiml`, `AIML_API_KEY`, and `AIML_DEFAULT_MODEL`.
      The Band adapter replies via platform tools, so the model **must support
      OpenAI tool calling** or the agent will stay silent.
    - Optionally `THENVOI_WS_URL` / `THENVOI_REST_URL` (defaults:
@@ -72,7 +118,11 @@ The specialist catalog contains:
 
    All supported names are listed in `.env.example`. Incomplete pairs fail fast;
    roles with neither value are skipped.
-4. `docker compose up --build` — the `band-agent` service starts automatically,
+4. Ensure the coordinator, reviewer, and every specialist expected to receive
+   mentions are participants in `BAND_DEFAULT_ROOM_ID` or the workflow room.
+   Band returns errors such as `422` when a mentioned agent is not in the room;
+   those are recorded as `failed` audit messages without failing the workflow.
+5. `docker compose up --build` — the `band-agent` service starts automatically,
    waits for the API to be healthy, and runs all configured identities concurrently.
 
 ### Troubleshooting

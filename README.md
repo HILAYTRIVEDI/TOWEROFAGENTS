@@ -61,7 +61,7 @@ External integrations are optional during base development. To configure them:
 cp .env.example .env
 ```
 
-Then add the required Supabase, AIML API, Featherless, or Band credentials and rebuild:
+Then add the required Supabase, AIML API, or Band credentials and rebuild:
 
 ```bash
 docker compose up --build
@@ -75,10 +75,6 @@ SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 AIML_API_KEY
 AIML_DEFAULT_MODEL
-FEATHERLESS_API_KEY
-FEATHERLESS_DEFAULT_MODEL
-FEATHERLESS_BASE_URL
-FEATHERLESS_TOOL_MODEL
 LLM_PROVIDER
 EMBEDDING_PROVIDER
 EMBEDDING_MODEL
@@ -101,13 +97,12 @@ the dashboard until Supabase authentication supplies it from the signed-in user.
 
 `BAND_MODE=mock` keeps everything in-process. To make the `@ATower Coordinator`
 reply to room mentions, set `BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`,
-either `LLM_PROVIDER=aiml` with `AIML_API_KEY`/`AIML_DEFAULT_MODEL`, or
-`LLM_PROVIDER=featherless` with `FEATHERLESS_API_KEY` and a tool-capable
-`FEATHERLESS_TOOL_MODEL`, then add the remote agent as a participant in the room.
+and `LLM_PROVIDER=aiml` with `AIML_API_KEY`/`AIML_DEFAULT_MODEL`, then add the
+remote agent as a participant in the room.
 `docker compose up --build` starts the
 `band-agent` service automatically; tail it with `docker compose logs -f band-agent`.
-HR workflow execution is still unimplemented (`/workflows/{id}/run` returns 501) —
-the coordinator says so rather than fabricating results. See `docs/BAND_INTEGRATION.md`.
+HR workflow execution runs through `/workflows/{id}/run`; the coordinator must
+not claim a run happened unless that API path completed. See `docs/BAND_INTEGRATION.md`.
 
 The same `band-agent` service supervises all registered specialist roles:
 
@@ -168,7 +163,6 @@ Next.js dashboard
     -> LangGraph workflow runtime
     -> Band collaboration and audit rooms
       -> AIML API agents
-      -> Featherless review agents
 ```
 
 Band is the visible collaboration layer, Supabase is the system of record, and LangGraph controls workflow execution.
@@ -214,12 +208,11 @@ Not implemented yet:
 
 - Workflow persistence and execution
 - Artifact parsing, chunking, embedding, and indexing (upload only, so far)
-- Live Supabase calls, and live AIML/Featherless calls from the API workflow path
+- Automatic real Band room creation and participant management from the API
 - In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` supervisor
-- HR (and other) workflow execution from the coordinator or the API
-- Final decision packet generation
+- HR workflow execution from the coordinator itself; workflow runs happen through the API
 
-Unfinished product endpoints return `501 Not Implemented` rather than fabricated data.
+Unfinished product paths must fail honestly rather than fabricate data.
 
 ## Planned MVP
 

@@ -11,6 +11,7 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 | `GET` | `/workflows?org_id={org_id}` | List organization-scoped workflows |
 | `GET` | `/workflows/{workflow_id}` | Workflow detail |
 | `DELETE` | `/workflows/{workflow_id}` | Permanently remove a workflow |
+| `POST` | `/workflows/{workflow_id}/band-session` | Assign a Band discussion room/session |
 | `POST` | `/workflows/{workflow_id}/documents` | Upload an artifact file to private storage |
 | `GET` | `/knowledge/{org_id}/documents` | List organization-scoped documents |
 | `POST` | `/knowledge/{org_id}/documents` | Upload an organization-shared knowledge document to private storage |
@@ -25,6 +26,10 @@ Workflow create/list/detail persistence is functional through Supabase. Calling 
 without `org_id` returns an empty list to prevent accidental cross-organization disclosure.
 `DELETE /workflows/{workflow_id}` permanently removes the workflow row and returns `204 No Content`;
 it returns `404` when no matching workflow exists.
+`POST /workflows/{workflow_id}/band-session` assigns a separate Band discussion room to a workflow.
+Pass `{ "band_room_id": "..." }` for a real Band room/session created in Band.ai. In mock mode only,
+`{ "create_mock_session": true }` creates a clearly labelled mock room. Automatic real Band room
+creation is not implemented in the request-scoped API path.
 The frontend temporarily reads this scope from `NEXT_PUBLIC_DEFAULT_ORG_ID`;
 authenticated profile-derived scope will replace it when auth is implemented.
 
@@ -59,15 +64,15 @@ marked `failed` rather than silently indexed.
 each document's existing chunks are replaced). It returns `202 Accepted` with
 `{ "status": "accepted", "workflow_id", "documents": "<count>" }`, or `404` for an unknown workflow.
 
-`POST /workflows/{workflow_id}/run` creates an MVP review packet from workflow metadata, the
-current organization-scoped document inventory, and retrieved chunks from workflow-specific plus
-organization-shared Knowledge documents. It persists the packet to `workflow_reports` and moves the
-workflow to `awaiting_review`. It returns `202 Accepted` with
+`POST /workflows/{workflow_id}/run` executes the configured workflow specialists against workflow
+metadata, the current organization-scoped document inventory, and retrieved chunks from
+workflow-specific plus organization-shared Knowledge documents. It persists the packet to
+`workflow_reports` and moves the workflow to `awaiting_review`. When `workflow.band_room_id` or
+`BAND_DEFAULT_ROOM_ID` is set, it also posts and persists the Band audit discussion. Band failures
+are recorded in `report_payload.band_audit` and never fail the workflow run. It returns `202 Accepted` with
 `{ "status": "awaiting_review", "workflow_id", "report_id" }`, or `404` for an unknown workflow.
-This endpoint does not yet perform LangGraph specialist-agent execution or LLM synthesis; generated
-reports are explicitly `human_review_required` and do not invent evidence chunk IDs. Retrieved chunk
-IDs are stored in `report_payload` for downstream agent execution, not exposed as formal citations
-until synthesis is implemented.
+Reports are explicitly `human_review_required`; evidence chunk IDs come only from retrieved context
+and are not invented.
 
 `GET /workflows/{workflow_id}/report` returns the persisted report for a workflow. `GET
 /reports/{report_id}` returns the same report by ID. Both return `404` when the report is missing.
@@ -84,7 +89,8 @@ the organization scope.
     "org_id": "uuid",
     "title": "Candidate screening: Jane Doe",
     "user_request": "Assess candidate against role and policy",
-    "template_slug": "hr-candidate-screening"
+    "template_slug": "hr-candidate-screening",
+    "band_room_id": "optional-band-room-id"
   }
 }
 ```
@@ -116,7 +122,14 @@ the organization scope.
     "interview_questions": [],
     "policy_note": null,
     "evidence_chunk_ids": [],
-    "requires_human_review": true
+    "requires_human_review": true,
+    "report_payload": {
+      "band_audit": {
+        "room_id": "band-room-id-or-null",
+        "message_count": 0,
+        "modes": {}
+      }
+    }
   }
 }
 ```

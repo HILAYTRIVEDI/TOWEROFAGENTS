@@ -1,11 +1,12 @@
 # ATower Of Agents - Implementation Status
 
-_Last assessed: 2026-06-19. `pytest apps/api/tests` → 87 passed. The HR candidate-screening workflow was driven end-to-end through the running stack (FastAPI :8000 + Next.js :3000) against live Supabase with the real AIML LLM provider (embeddings still mock): create workflow → upload resume/JD/policy → index → run → view decision packet at `/reports/{id}`. Confirmed non-mock output (`any_mock: False`, 5 specialist agents ran, 6 chunks retrieved)._
+_Last assessed: 2026-06-19. `.venv/bin/python -m pytest apps/api/tests` → 101 passed; `npm run typecheck` and `npm run build` in `apps/web` passed. `npm run lint` is blocked by the existing ESLint config resolving `next/core-web-vitals`. Backend Band workflow-audit path is wired and covered by focused tests. LLM routing and the Band coordinator use AIML API only; Featherless is disabled for this deployment. The HR candidate-screening workflow was previously driven end-to-end through the running stack (FastAPI :8000 + Next.js :3000) against live Supabase with the real AIML LLM provider (embeddings still mock): create workflow → upload resume/JD/policy → index → run → view decision packet at `/reports/{id}`. Confirmed non-mock output (`any_mock: False`, 5 specialist agents ran, 6 chunks retrieved)._
 
 The HR candidate-screening workflow now executes end to end. Specialist agents
 run behind the typed LLM provider interface and synthesize a persisted,
-human-review-gated decision packet rendered in the web UI. Remaining gaps are
-real embeddings, LangGraph orchestration, and Band audit messaging.
+human-review-gated decision packet rendered in the web UI. The run path now posts
+and persists Band audit messages when a workflow room or `BAND_DEFAULT_ROOM_ID`
+is available. Remaining gaps are real embeddings and LangGraph orchestration.
 
 ## Implemented And Working
 
@@ -22,6 +23,11 @@ real embeddings, LangGraph orchestration, and Band audit messaging.
   `resume-jd-matcher`, `bias-reviewer`, `interview-planner`, `lead-qualifier`,
   and `engineering-reviewer`.
 - Band remote-agent support exists via `band/coordinator.py` and `band/remote_agents.py`.
+- Workflow-run Band audit support exists via `band/run_audit.py`; `/workflows/{id}/run`
+  posts one message per executed specialist and persists `band_messages` when a
+  room/default room is configured. In `BAND_MODE=mock`, messages are persisted as
+  mock with no network call. The report page shows the Band audit room, message
+  count, and mode breakdown.
 - Local `.env` in the main checkout had specialist Band credentials for the non-router agents; the Supabase catalog itself includes `@workflow-router`.
 
 ### Knowledge / Documents
@@ -42,13 +48,15 @@ real embeddings, LangGraph orchestration, and Band audit messaging.
 ### Workflow CRUD
 - Workflow create/list/get/delete are Supabase-backed.
 - Workflow detail can still upload workflow-specific artifacts.
+- Workflows can be assigned a separate Band discussion room/session at creation
+  or from the workflow detail page. In mock mode, the app can create a mock
+  session; in real Band mode, operators paste an existing Band room ID.
 
 ### Workflow Reports (HR candidate screening — end to end)
 - `POST /workflows/{id}/run` executes the HR specialist agents (`specialist_agents_v1`):
-  resume-jd-matcher, bias-reviewer, interview-planner, policy-guardian, and
-  final-decision synthesis. It persists a decision packet and moves the workflow
-  to `awaiting_review`. (`workflow-router` and `rag-retriever` are declared but
-  not yet implemented and are recorded as skipped, not faked.)
+  workflow-router, rag-retriever, resume-jd-matcher, bias-reviewer,
+  interview-planner, policy-guardian, and final-decision synthesis. It persists
+  a decision packet and moves the workflow to `awaiting_review`.
 - Each agent runs behind the typed `ChatProvider` interface via `LLMRouter`. With
   a real provider (AIML) the findings are genuine; with the `mock` provider every
   finding is explicitly flagged `[PLACEHOLDER]`, `confidence=0.0`, and forces
@@ -74,9 +82,8 @@ real embeddings, LangGraph orchestration, and Band audit messaging.
 | Full verification | Run `pnpm test:api`, `pnpm typecheck`, and `pnpm build` after dependencies are installed. |
 | Embeddings provider | Replace mock embedding behavior with a real provider configured to `EMBEDDING_DIMENSIONS=1536`. (LLM provider is real AIML; embeddings are still mock.) |
 | LangGraph orchestration | The executor runs specialist agents sequentially; port to a LangGraph graph for branching/router-driven flows. |
-| Remaining agents | Implement `run()` for `workflow-router` and `rag-retriever` (currently recorded as skipped). HR screening agents are implemented. |
 | Provider name in payload | `providers_used` logs `"unknown"` because the provider object doesn't expose a name; `any_mock` is authoritative. Surface the real provider/model name. |
-| Band workflow audit | Create/use Band rooms per workflow, add relevant participants, post progress/finding messages, and persist `band_messages`. |
+| Band room provisioning | Create real Band rooms and add relevant participants automatically. Current real demo path uses a pasted Band room ID or `BAND_DEFAULT_ROOM_ID`. |
 | Auth/RLS | Replace temporary env org scope with Supabase auth-derived org scope and harden production RLS policies. |
 | UI polish | Add Knowledge filters/search/date/size columns if needed, and clarify destructive delete behavior. |
 
@@ -93,5 +100,4 @@ are cataloged, private document storage and indexing work, and a run drives five
 specialist agents behind the typed LLM interface to a persisted, human-review-gated
 decision packet shown at `/reports/{id}` — verified against live Supabase with the
 real AIML provider. The main remaining work is real embeddings, LangGraph
-orchestration, the two unimplemented agents (`workflow-router`, `rag-retriever`),
-and Band audit messaging.
+orchestration, and automatic Band room provisioning/participant management.

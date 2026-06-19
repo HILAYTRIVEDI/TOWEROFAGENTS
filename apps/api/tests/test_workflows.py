@@ -12,16 +12,34 @@ from routes.workflows import get_retriever, get_workflow_repository
 
 def _mock_settings() -> Settings:
     """Settings pinned to mock providers so tests are env-independent."""
-    return Settings(llm_provider="mock", embedding_provider="mock")
+    return Settings(
+        llm_provider="mock",
+        embedding_provider="mock",
+        band_mode="mock",
+        band_default_room_id=None,
+        band_reviewer_handle=None,
+    )
+
+
+def _mock_settings_with_band_room() -> Settings:
+    return Settings(
+        llm_provider="mock",
+        embedding_provider="mock",
+        band_mode="mock",
+        band_default_room_id="room-demo",
+        band_reviewer_handle="hr-reviewer",
+    )
 
 
 class FakeWorkflowRepository:
-    def __init__(self) -> None:
+    def __init__(self, *, band_room_id: str | None = None) -> None:
         self.workflow_id = uuid4()
         self.org_id = uuid4()
         self.report_id = uuid4()
         self.statuses: list[str] = []
         self.report: dict | None = None
+        self.band_room_id = band_room_id
+        self.band_messages: list[dict] = []
 
     def row(self) -> dict:
         return {
@@ -31,7 +49,7 @@ class FakeWorkflowRepository:
             "user_request": "Assess candidate against role",
             "template_slug": "hr-candidate-screening",
             "status": "draft",
-            "band_room_id": None,
+            "band_room_id": self.band_room_id,
             "created_at": datetime.now(UTC),
         }
 
@@ -40,6 +58,7 @@ class FakeWorkflowRepository:
         row["org_id"] = payload.org_id
         row["title"] = payload.title
         row["template_slug"] = payload.template_slug
+        row["band_room_id"] = payload.band_room_id
         return row
 
     async def list_workflows(self, org_id: UUID) -> list[dict]:
@@ -55,6 +74,12 @@ class FakeWorkflowRepository:
         if workflow_id == self.workflow_id:
             self.statuses.append(status)
 
+    async def update_workflow_band_room(self, workflow_id: UUID, band_room_id: str) -> dict | None:
+        if workflow_id != self.workflow_id:
+            return None
+        self.band_room_id = band_room_id
+        return self.row()
+
     async def save_workflow_report(self, *, workflow: dict, report, payload: dict) -> dict:
         self.report = report.model_dump(mode="json")
         self.report["id"] = self.report_id
@@ -66,6 +91,11 @@ class FakeWorkflowRepository:
 
     async def get_report(self, report_id: UUID) -> dict | None:
         return self.report if report_id == self.report_id else None
+
+    async def save_band_message(self, message: dict) -> dict:
+        row = {**message, "id": uuid4()}
+        self.band_messages.append(row)
+        return row
 
 
 class FakeDocumentRepository:
@@ -170,6 +200,82 @@ def test_create_and_get_workflow() -> None:
     assert fetched.status_code == 200
 
 
+def test_create_workflow_can_assign_band_room() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        created = TestClient(app).post(
+            "/workflows",
+            json={
+                "org_id": str(repository.org_id),
+                "title": "New candidate review",
+                "user_request": "Assess candidate against role",
+                "template_slug": "hr-candidate-screening",
+                "band_room_id": "band-room-123",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert created.status_code == 201
+    assert created.json()["band_room_id"] == "band-room-123"
+
+
+def test_set_workflow_band_session_to_existing_room() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_settings] = _mock_settings
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/band-session",
+            json={"band_room_id": "separate-band-room"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["band_room_id"] == "separate-band-room"
+    assert repository.band_room_id == "separate-band-room"
+
+
+def test_set_workflow_band_session_can_create_mock_room() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_settings] = _mock_settings
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/band-session",
+            json={"create_mock_session": True},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["band_room_id"].startswith("mock-room-")
+
+
+def test_real_band_session_creation_requires_existing_room_id() -> None:
+    repository = FakeWorkflowRepository()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        llm_provider="mock",
+        embedding_provider="mock",
+        band_mode="sdk",
+        band_api_key="key",
+        band_agent_id="agent",
+    )
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/band-session",
+            json={"create_mock_session": True},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert "paste its room ID" in response.json()["detail"]
+
+
 def test_delete_workflow_returns_no_content() -> None:
     repository = FakeWorkflowRepository()
     app.dependency_overrides[get_workflow_repository] = lambda: repository
@@ -237,6 +343,53 @@ def test_run_workflow_persists_review_report() -> None:
     assert isinstance(payload["agents_skipped"], list)
     # Mock provider means any_mock is True and requires_human_review is True
     assert payload["any_mock"] is True
+    assert payload["band_audit"] == {"room_id": None, "message_count": 0, "modes": {}}
+
+
+def test_run_workflow_posts_mock_band_audit_when_room_configured() -> None:
+    repository = FakeWorkflowRepository()
+    documents = FakeDocumentRepository(repository.org_id, repository.workflow_id)
+    embedding_provider = FakeEmbeddingProvider()
+    retriever = FakeRetriever()
+    app.dependency_overrides[get_settings] = _mock_settings_with_band_room
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    app.dependency_overrides[get_document_repository] = lambda: documents
+    app.dependency_overrides[get_embedding_provider_dep] = lambda: embedding_provider
+    app.dependency_overrides[get_retriever] = lambda: retriever
+    try:
+        response = TestClient(app).post(f"/workflows/{repository.workflow_id}/run", json={})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 202
+    assert repository.statuses == ["running", "awaiting_review"]
+    payload = repository.report["report_payload"]  # type: ignore[index]
+    assert payload["agents_ran"] == [
+        "workflow-router",
+        "rag-retriever",
+        "resume-jd-matcher",
+        "bias-reviewer",
+        "interview-planner",
+        "policy-guardian",
+        "final-decision",
+    ]
+    assert payload["band_audit"] == {
+        "room_id": "room-demo",
+        "message_count": 7,
+        "modes": {"mock": 7},
+    }
+    assert len(repository.band_messages) == 7
+    assert repository.band_messages[0]["band_room_id"] == "room-demo"
+    assert repository.band_messages[0]["sender_ref"] == "workflow-router"
+    assert repository.band_messages[0]["band_message_id"] is None
+    assert repository.band_messages[0]["raw_payload"]["mode"] == "mock"
+    assert repository.band_messages[0]["raw_payload"]["mentions"] == [
+        {"handle": "rag-retriever", "kind": "mention"}
+    ]
+    assert repository.band_messages[-1]["sender_ref"] == "final-decision"
+    assert repository.band_messages[-1]["raw_payload"]["mentions"] == [
+        {"handle": "hr-reviewer", "kind": "mention"}
+    ]
 
 
 def test_get_missing_workflow_report_returns_not_found() -> None:

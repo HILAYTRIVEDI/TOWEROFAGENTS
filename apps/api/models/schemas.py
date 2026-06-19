@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class WorkflowStatus(StrEnum):
@@ -43,6 +43,15 @@ class WorkflowCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     user_request: str = Field(min_length=1, max_length=5000)
     template_slug: str | None = None
+    band_room_id: str | None = Field(default=None, max_length=200)
+
+    @field_validator("band_room_id", mode="before")
+    @classmethod
+    def empty_band_room_id_to_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = str(value).strip()
+        return stripped or None
 
 
 class WorkflowRead(BaseModel):
@@ -57,6 +66,19 @@ class WorkflowRead(BaseModel):
 
 class WorkflowRunRequest(BaseModel):
     force_reindex: bool = False
+
+
+class WorkflowBandSessionRequest(BaseModel):
+    band_room_id: str | None = Field(default=None, max_length=200)
+    create_mock_session: bool = False
+
+    @field_validator("band_room_id", mode="before")
+    @classmethod
+    def empty_band_room_id_to_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = str(value).strip()
+        return stripped or None
 
 
 class DocumentRead(BaseModel):
@@ -97,6 +119,7 @@ class WorkflowReportRead(BaseModel):
     policy_note: str | None = None
     evidence_chunk_ids: list[str] = Field(default_factory=list)
     requires_human_review: bool = True
+    report_payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class HealthResponse(BaseModel):

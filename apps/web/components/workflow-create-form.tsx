@@ -40,6 +40,7 @@ export function WorkflowCreateForm({ orgId }: { orgId: string }) {
         title: String(form.get("title") ?? ""),
         user_request: String(form.get("user_request") ?? ""),
         template_slug: template,
+        band_room_id: String(form.get("band_room_id") ?? "").trim() || null,
       });
       router.push(`/workflows/${workflow.id}`);
       router.refresh();
@@ -88,6 +89,15 @@ export function WorkflowCreateForm({ orgId }: { orgId: string }) {
           placeholder="Assess role fit against the supplied job description and hiring policy."
           required
           rows={5}
+        />
+      </label>
+      <label>
+        Band room ID
+        <input
+          maxLength={200}
+          name="band_room_id"
+          placeholder="Optional separate Band.ai room/session ID"
+          type="text"
         />
       </label>
       <fieldset>

@@ -50,6 +50,7 @@ Operating rules:
 - Never invent facts, citations, evidence IDs, tool results, or completed work.
 - State missing evidence and uncertainty plainly.
 - Agent output is advisory; high-impact decisions require human review.
+- Never claim a workflow ran unless the API run path actually completed it.
 - ATower workflows execute via the LangGraph runtime. Findings are posted to
   the Band room by the in-process auditor (band.run_audit). When BAND_MODE=sdk
   with credentials, those posts are real; otherwise they are explicitly labelled

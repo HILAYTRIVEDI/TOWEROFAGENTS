@@ -5,7 +5,7 @@ holds a Band WebSocket connection, so without this process the `@ATower
 Coordinator` remote agent stays silent even though it is a room participant.
 
 The coordinator joins Band via the official SDK (`thenvoi`), drives a LangGraph
-adapter backed by a Featherless OpenAI-compatible model, and replies to mentions
+adapter backed by an AIML API OpenAI-compatible model, and replies to mentions
 using Band platform tools. It does NOT execute HR screening or any product
 workflow: `/workflows/{id}/run` is still 501. The agent is instructed to say so
 plainly and point users at artifact upload instead of fabricating results.
@@ -99,7 +99,8 @@ def build_coordinator_config(settings: Settings) -> CoordinatorConfig:
         )
 
     provider = settings.llm_provider.lower()
-    if provider == "aiml":
+    if provider in {"aiml", "auto"}:
+        provider = "aiml"
         llm_api_key = settings.aiml_api_key
         model = settings.aiml_default_model
         base_url = DEFAULT_AIML_BASE_URL
@@ -111,22 +112,14 @@ def build_coordinator_config(settings: Settings) -> CoordinatorConfig:
             )
             if not value
         ]
-    elif provider in {"featherless", "auto"}:
-        provider = "featherless"
-        llm_api_key = settings.featherless_api_key
-        model = settings.featherless_tool_model or settings.featherless_default_model
-        base_url = settings.featherless_base_url
-        missing = [
-            name
-            for name, value in (
-                ("FEATHERLESS_API_KEY", llm_api_key),
-                ("FEATHERLESS_TOOL_MODEL or FEATHERLESS_DEFAULT_MODEL", model),
-            )
-            if not value
-        ]
+    elif provider == "featherless":
+        raise RuntimeError(
+            "Featherless is disabled for this deployment. Set LLM_PROVIDER=aiml "
+            "and configure AIML_API_KEY/AIML_DEFAULT_MODEL."
+        )
     else:
         raise RuntimeError(
-            "Band coordinator requires LLM_PROVIDER=aiml or LLM_PROVIDER=featherless "
+            "Band coordinator requires LLM_PROVIDER=aiml "
             f"when BAND_MODE=sdk (current LLM_PROVIDER={settings.llm_provider!r})."
         )
 

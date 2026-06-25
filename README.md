@@ -2,7 +2,7 @@
 
 ATower Of Agents is a control tower for enterprise AI-agent workflows. Operators will be able to upload company artifacts, assemble specialist agents in a Band room, retrieve evidence through Supabase RAG, and receive an auditable decision packet.
 
-The repository provides the architecture and API contracts, agent instructions, Supabase migrations, mock-safe integration boundaries, a FastAPI backend, and a Next.js dashboard. The **HR Candidate Screening** workflow now runs end to end: documents are ingested into pgvector, specialist agents execute against retrieved evidence, and an auditable decision packet is persisted and rendered. Live in-process Band posting and API-driven room management are the remaining integration gaps.
+The repository provides the architecture and API contracts, agent instructions, Supabase migrations, mock-safe integration boundaries, a FastAPI backend, and a Next.js dashboard. The **HR Candidate Screening** workflow now runs end to end: documents are ingested into pgvector, specialist agents execute against retrieved evidence, Band audit messages are posted or explicitly mocked, and an auditable decision packet is persisted and rendered. The main remaining gaps are real Band room provisioning, LangGraph orchestration, production auth/RLS, and fully configured real embeddings.
 
 ## Quick Start
 
@@ -95,14 +95,20 @@ the dashboard until Supabase authentication supplies it from the signed-in user.
 
 ### Live Band agents
 
-`BAND_MODE=mock` keeps everything in-process. To make the `@ATower Coordinator`
-reply to room mentions, set `BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`,
-and `LLM_PROVIDER=aiml` with `AIML_API_KEY`/`AIML_DEFAULT_MODEL`, then add the
-remote agent as a participant in the room.
+`BAND_MODE=mock` keeps everything in-process and records explicit mock audit
+messages. To make the `@ATower Coordinator` reply to room mentions, set
+`BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`, and `LLM_PROVIDER=aiml`
+with `AIML_API_KEY`/`AIML_DEFAULT_MODEL`, then add the remote agent as a
+participant in the room.
 `docker compose up --build` starts the
 `band-agent` service automatically; tail it with `docker compose logs -f band-agent`.
 HR workflow execution runs through `/workflows/{id}/run`; the coordinator must
 not claim a run happened unless that API path completed. See `docs/BAND_INTEGRATION.md`.
+
+Workflow runs also use `band/run_audit.py` to post one message per executed
+specialist when a workflow room or `BAND_DEFAULT_ROOM_ID` is present. In
+`BAND_MODE=sdk`, each specialist posts with its own remote-agent credential. In
+mock mode, the audit messages are persisted with `mode=mock` and no network call.
 
 The same `band-agent` service supervises all registered specialist roles:
 
@@ -162,10 +168,10 @@ Next.js dashboard
     -> Supabase Auth, Postgres, Storage, and pgvector
     -> LangGraph workflow runtime
     -> Band collaboration and audit rooms
-      -> AIML API agents
+      -> AIML API agents, with explicit mock fallback
 ```
 
-Band is the visible collaboration layer, Supabase is the system of record, and LangGraph controls workflow execution.
+Band is the visible collaboration layer, Supabase is the system of record, and LangGraph is the planned workflow runtime. The current HR run path uses a sequential specialist executor.
 
 ## Repository Map
 
@@ -195,27 +201,43 @@ Available now:
 - Dockerized Next.js and FastAPI services
 - API health endpoint and OpenAPI documentation
 - Typed backend and frontend contracts
-- Agent and workflow registries
-- Mock Band and LLM adapter boundaries (in-process)
+- Agent and workflow registries, including HR, Sales, Engineering, and platform agents
+- Mock Band, mock LLM, AIML LLM, and embedding adapter boundaries
 - Live Band SDK supervisor for the coordinator and nine specialist roles
 - Parser, chunker, embedding, and retrieval boundaries
 - Supabase schema, pgvector search function, and seed catalog
-- Dashboard, workflow, agent, knowledge, and report routes
+- Dashboard, workflow, agent, knowledge-base, docs, and report routes
 - Document upload from the workflow detail page to a private Supabase Storage
   bucket, followed by ingestion into pgvector (status advances
   `uploaded` → `parsing` → `indexed`, or `failed` on error)
+- Organization-shared Knowledge uploads and deletes; shared chunks are stored
+  with `workflow_id = null` and are retrieved alongside workflow-specific chunks
 - Document ingestion pipeline: parse → chunk → embed → persist scoped chunks
   (`rag/ingestion.py`), with shared knowledge-base chunks stored NULL-scoped
-- Workflow execution and persistence: `POST /workflows/{id}/run` runs the
+- Workflow CRUD, workflow-specific document upload, workflow re-indexing, and
+  workflow Band room assignment
+- HR workflow execution and persistence: `POST /workflows/{id}/run` runs the
   specialist agents against retrieved evidence and saves an evidence-backed
   decision packet (recommendation, strengths, gaps, interview questions, and a
   plain-text policy note) to Supabase
+- Workflow run Band audit: when a room/default room is configured, specialist
+  findings are posted to Band in SDK mode or persisted as explicit mock messages
+  in mock mode; the report payload records message counts and modes
+- Report retrieval by workflow or report ID, with the report UI showing the
+  decision packet, human-review banner, evidence IDs, and Band audit summary
+- Focused backend tests for agents, workflow execution, document handling,
+  retrieval, schemas, LLM routing, and Band audit behavior
 
 Not implemented yet:
 
 - Automatic real Band room creation and participant management from the API
-- In-process Band posting from the API (`BandSDKClient`); the live path is the standalone `band-agent` supervisor
 - HR workflow execution from the coordinator itself; workflow runs happen through the API
+- LangGraph runtime execution; `workflows/graph.py` still documents planned node order and raises `NotImplementedError`
+- Production auth-derived organization scoping and hardened RLS; the dashboard still uses `NEXT_PUBLIC_DEFAULT_ORG_ID`
+- Fully configured real embeddings in all environments; mock embeddings are deterministic but not meaningful
+- Featherless routing; the current deployment disables Featherless and expects AIML for real LLM calls
+- Sales Lead Qualification and Engineering Change Review execution beyond shallow templates
+- Formal approval/decision action flow; all AI decisions still require human review
 
 Unfinished product paths must fail honestly rather than fabricate data.
 
@@ -224,9 +246,26 @@ Unfinished product paths must fail honestly rather than fabricate data.
 The first complete workflow is **HR Candidate Screening**:
 
 1. Upload a resume, job description, and hiring policy.
-2. Create a Band room with specialist agents.
-3. Retrieve workflow-scoped evidence from Supabase.
+2. Attach an existing Band room, create a mock room, or rely on `BAND_DEFAULT_ROOM_ID`.
+3. Retrieve workflow-scoped and organization-shared evidence from Supabase.
 4. Run fit, fairness, interview, policy, and final-decision reviews.
-5. Produce an evidence-backed packet requiring appropriate human review.
+5. Persist specialist Band audit messages when a room is configured.
+6. Produce an evidence-backed packet requiring human review.
 
 Sales Lead Qualification and Engineering Change Review remain shallow breadth templates.
+
+## Remaining Work
+
+Highest-priority gaps:
+
+- Apply any pending Supabase migrations, especially organization document support, to live environments.
+- Configure a real embedding provider and keep `EMBEDDING_DIMENSIONS` aligned with the SQL vector dimension.
+- Replace the sequential workflow executor with real LangGraph orchestration.
+- Add API-driven real Band room creation and participant management.
+- Move organization scope from temporary environment configuration to Supabase Auth/RLS.
+- Add the formal human approval step before any high-impact HR decision can be acted on.
+- Polish the Knowledge UI with search/filter/sort metadata if the demo needs larger document sets.
+
+Out of scope for this bootstrap remains full RBAC, billing, production queues,
+OAuth integrations, Slack/Teams, vendor crawling, complex analytics, perfect
+parsing, and a general approval engine.

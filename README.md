@@ -51,6 +51,12 @@ docker compose down --volumes --rmi local --remove-orphans
 docker compose up --build --force-recreate
 ```
 
+Local Docker runs use `docker-compose.override.yml` automatically. It bind-mounts
+`apps/web` and `apps/api`, runs Next.js in dev mode, and starts FastAPI with
+`--reload`, so frontend and API source changes should appear without rebuilding.
+Rebuild only when dependencies, Dockerfiles, or build-time environment values
+change.
+
 If Docker reports that it cannot connect to the daemon, start Docker Desktop or the Docker Engine service and rerun the command.
 
 ## Environment

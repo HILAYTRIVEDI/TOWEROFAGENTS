@@ -20,72 +20,71 @@ export default function LandingPage() {
         {/* ── Hero ── */}
         <section className="lp-hero" aria-labelledby="hero-heading">
           <div className="lp-hero-inner">
-            <p className="eyebrow lp-eyebrow">Enterprise AI-agent control tower</p>
+            <p className="eyebrow lp-eyebrow">Decision-ready work, faster</p>
             <h1 id="hero-heading">
-              Orchestrate specialist agents.<br />
-              Keep humans in control.
+              Turn messy reviews into clear, auditable decisions.
             </h1>
             <p className="lede">
-              ATower is an enterprise workflow control tower that routes complex decisions
-              through specialist AI agents — with Band-backed collaboration, full audit
-              trails, and mandatory human review at every high-impact step.
+              ATower helps teams screen candidates, qualify opportunities, and review
+              changes with evidence in one place, clear recommendations, and human
+              approval before any high-impact action.
             </p>
             <div className="lp-hero-actions">
               <Link href="/dashboard" className="button primary lp-btn-lg">
-                Open dashboard
+                Review work queue
               </Link>
-              <Link href="/docs" className="button lp-btn-lg lp-btn-ghost">
-                Read the docs
+              <Link href="/workflows/new" className="button lp-btn-lg lp-btn-ghost">
+                Start a workflow
               </Link>
             </div>
           </div>
         </section>
 
-        {/* ── Architecture story ── */}
+        {/* ── Outcome story ── */}
         <section className="lp-section lp-arch-section" aria-labelledby="arch-heading">
           <div className="lp-section-inner">
-            <p className="eyebrow lp-eyebrow">Real architecture</p>
+            <p className="eyebrow lp-eyebrow">What teams get</p>
             <h2 id="arch-heading" className="lp-section-title">
-              One coherent pipeline — no black boxes
+              From scattered inputs to a decision packet
             </h2>
             <p className="lp-section-lede">
-              Every layer is a first-class engineering concern. The control plane is fully
-              inspectable from dashboard to database.
+              Operators do not need to chase files, chat threads, or model outputs.
+              ATower gathers the evidence, runs the review, and leaves a clean record
+              for the person accountable for the decision.
             </p>
 
-            <div className="lp-arch-pipeline" role="img" aria-label="Architecture pipeline: Next.js dashboard to FastAPI to Supabase, LangGraph, and Band, then to AIML API and Featherless behind a single LLM interface">
+            <div className="lp-arch-pipeline" role="img" aria-label="Outcome flow: upload source materials, compare evidence, surface review notes, and produce a human-reviewed decision packet">
               <div className="lp-arch-node lp-arch-node--primary">
-                <span className="lp-arch-label">Frontend</span>
-                <strong>Next.js Dashboard</strong>
-                <span className="lp-arch-sub">App Router · React Server Components</span>
+                <span className="lp-arch-label">Intake</span>
+                <strong>Bring the evidence together</strong>
+                <span className="lp-arch-sub">Resumes, job descriptions, policies, notes, and supporting files</span>
               </div>
               <div className="lp-arch-arrow" aria-hidden="true">→</div>
               <div className="lp-arch-node lp-arch-node--primary">
-                <span className="lp-arch-label">API layer</span>
-                <strong>FastAPI</strong>
-                <span className="lp-arch-sub">Python · typed routes · async</span>
+                <span className="lp-arch-label">Review</span>
+                <strong>Find strengths, gaps, and risks</strong>
+                <span className="lp-arch-sub">Specialist reviews turn raw material into concise findings</span>
               </div>
               <div className="lp-arch-arrow" aria-hidden="true">→</div>
               <div className="lp-arch-cluster">
                 <div className="lp-arch-node lp-arch-node--secondary">
-                  <strong>Supabase</strong>
-                  <span className="lp-arch-sub">Auth · Postgres · Storage · pgvector</span>
+                  <strong>Evidence-backed notes</strong>
+                  <span className="lp-arch-sub">Recommendations point back to retrieved context</span>
                 </div>
                 <div className="lp-arch-node lp-arch-node--secondary">
-                  <strong>LangGraph</strong>
-                  <span className="lp-arch-sub">Workflow runtime · agent graphs</span>
+                  <strong>Shared discussion</strong>
+                  <span className="lp-arch-sub">Teams can follow the review trail in one room</span>
                 </div>
                 <div className="lp-arch-node lp-arch-node--band">
-                  <strong>Band</strong>
-                  <span className="lp-arch-sub">Collaboration · audit rooms</span>
+                  <strong>Human checkpoint</strong>
+                  <span className="lp-arch-sub">AI output stays advisory until a reviewer acts</span>
                 </div>
               </div>
               <div className="lp-arch-arrow" aria-hidden="true">→</div>
               <div className="lp-arch-node lp-arch-node--llm">
-                <span className="lp-arch-label">LLM interface</span>
-                <strong>One provider API</strong>
-                <span className="lp-arch-sub">AIML API (routing / synthesis)</span>
-                <span className="lp-arch-sub">Featherless (verification / second opinions)</span>
+                <span className="lp-arch-label">Outcome</span>
+                <strong>Decision packet</strong>
+                <span className="lp-arch-sub">Recommendation, rationale, gaps, interview prompts, and audit trail</span>
               </div>
             </div>
 
@@ -97,9 +96,9 @@ export default function LandingPage() {
                 </svg>
               </div>
               <div>
-                <strong>Band is the collaboration and audit layer.</strong>
-                {" "}Agent findings are persisted to Supabase and posted to Band rooms in real time —
-                every decision has a traceable, human-readable record before it reaches a reviewer.
+                <strong>The result is not another chat transcript.</strong>
+                {" "}Each run produces a structured packet reviewers can inspect, challenge,
+                and approve with the supporting evidence still attached.
               </div>
             </div>
           </div>
@@ -108,42 +107,40 @@ export default function LandingPage() {
         {/* ── HR Candidate Screening spotlight ── */}
         <section className="lp-section lp-spotlight-section" aria-labelledby="spotlight-heading">
           <div className="lp-section-inner">
-            <p className="eyebrow lp-eyebrow">Proof workflow</p>
+            <p className="eyebrow lp-eyebrow">First proven workflow</p>
             <h2 id="spotlight-heading" className="lp-section-title">
               HR Candidate Screening
             </h2>
             <p className="lp-section-lede">
-              The deepest workflow in the MVP — demonstrating the full agent lifecycle from
-              intake through specialist analysis to human decision.
+              Help hiring teams move from scattered resumes and policies to a fairer,
+              faster review packet that still leaves the final call with a person.
             </p>
 
             <div className="lp-pipeline-steps" role="list">
               <div className="lp-step" role="listitem">
                 <div className="lp-step-num" aria-hidden="true">01</div>
-                <h3 className="lp-step-title">Intake</h3>
+                <h3 className="lp-step-title">Collect the case</h3>
                 <p className="lp-step-body">
-                  Job description and candidate resume submitted via structured form.
-                  Artifacts stored in Supabase Storage; metadata indexed in Postgres.
+                  Upload the resume, job description, and hiring policy so the review
+                  starts from the same source material every time.
                 </p>
               </div>
               <div className="lp-step-connector" aria-hidden="true" />
               <div className="lp-step" role="listitem">
                 <div className="lp-step-num" aria-hidden="true">02</div>
-                <h3 className="lp-step-title">Specialist agents</h3>
+                <h3 className="lp-step-title">Compare what matters</h3>
                 <p className="lp-step-body">
-                  LangGraph routes the run through parallel specialist agents: skills
-                  alignment, culture fit, experience depth, and red-flag detection.
-                  Each agent posts findings to its Band room.
+                  Surface role fit, missing evidence, policy concerns, bias checks,
+                  and interview questions without losing the source context.
                 </p>
               </div>
               <div className="lp-step-connector" aria-hidden="true" />
               <div className="lp-step" role="listitem">
                 <div className="lp-step-num" aria-hidden="true">03</div>
-                <h3 className="lp-step-title">Human review</h3>
+                <h3 className="lp-step-title">Decide with a record</h3>
                 <p className="lp-step-body">
-                  A consolidated advisory report surfaces in the dashboard.
-                  Agent outputs are recommendations only — the hiring decision
-                  always belongs to a human reviewer.
+                  Review a consolidated recommendation, challenge the reasoning,
+                  and keep a traceable record before taking action.
                 </p>
               </div>
             </div>
@@ -156,15 +153,15 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Capability cards ── */}
+        {/* ── Outcome cards ── */}
         <section className="lp-section" aria-labelledby="caps-heading">
           <div className="lp-section-inner">
-            <p className="eyebrow lp-eyebrow">Platform capabilities</p>
+            <p className="eyebrow lp-eyebrow">Product outcomes</p>
             <h2 id="caps-heading" className="lp-section-title">
-              Built for enterprise-grade workflows
+              Review work without losing accountability
             </h2>
             <div className="lp-cap-grid">
-              <article className="lp-cap-card" aria-label="Multi-agent workflows">
+              <article className="lp-cap-card" aria-label="Faster review cycles">
                 <div className="lp-cap-icon" aria-hidden="true">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <circle cx="5" cy="11" r="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -173,14 +170,14 @@ export default function LandingPage() {
                     <path d="M8 11h3m3-3.5-3 3m0 0 3 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                 </div>
-                <h3 className="lp-cap-title">Multi-agent workflows</h3>
+                <h3 className="lp-cap-title">Faster review cycles</h3>
                 <p className="lp-cap-body">
-                  LangGraph-powered agent graphs with parallel specialist lanes,
-                  typed handoffs, and retry logic baked in.
+                  Turn long-form artifacts into focused findings so reviewers spend
+                  less time assembling context and more time making judgment calls.
                 </p>
               </article>
 
-              <article className="lp-cap-card" aria-label="RAG knowledge base">
+              <article className="lp-cap-card" aria-label="Evidence-backed recommendations">
                 <div className="lp-cap-icon" aria-hidden="true">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.5"/>
@@ -189,27 +186,27 @@ export default function LandingPage() {
                     <rect x="12" y="12" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   </svg>
                 </div>
-                <h3 className="lp-cap-title">RAG knowledge base</h3>
+                <h3 className="lp-cap-title">Evidence-backed recommendations</h3>
                 <p className="lp-cap-body">
-                  Documents indexed via pgvector in Supabase. Agents retrieve relevant
-                  context at runtime — no hallucinated citations.
+                  Keep source documents attached to the review so teams can verify
+                  why a strength, gap, or risk was raised.
                 </p>
               </article>
 
-              <article className="lp-cap-card" aria-label="Band collaboration and audit">
+              <article className="lp-cap-card" aria-label="Audit-ready collaboration">
                 <div className="lp-cap-icon" aria-hidden="true">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <path d="M4 6h14M4 11h10M4 16h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                 </div>
-                <h3 className="lp-cap-title">Band collaboration &amp; audit</h3>
+                <h3 className="lp-cap-title">Audit-ready collaboration</h3>
                 <p className="lp-cap-body">
-                  Every agent finding is posted to a Band room. The full decision
-                  thread is auditable, shareable, and persisted alongside the run record.
+                  Keep the discussion, findings, and final packet connected so
+                  stakeholders can retrace what happened later.
                 </p>
               </article>
 
-              <article className="lp-cap-card" aria-label="Human-in-the-loop review">
+              <article className="lp-cap-card" aria-label="Human-owned decisions">
                 <div className="lp-cap-icon" aria-hidden="true">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <circle cx="11" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
@@ -217,10 +214,10 @@ export default function LandingPage() {
                     <path d="M15 13l1.5 1.5L19 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <h3 className="lp-cap-title">Human-in-the-loop</h3>
+                <h3 className="lp-cap-title">Human-owned decisions</h3>
                 <p className="lp-cap-body">
-                  Agent outputs are advisory. High-impact decisions gate on explicit
-                  human approval — the system cannot act autonomously on consequential choices.
+                  Recommendations stay advisory. High-impact outcomes require a
+                  reviewer to inspect the packet and make the call.
                 </p>
               </article>
             </div>
@@ -230,9 +227,9 @@ export default function LandingPage() {
         {/* ── Workflow templates ── */}
         <section className="lp-section" aria-labelledby="templates-heading">
           <div className="lp-section-inner">
-            <p className="eyebrow lp-eyebrow">Workflow templates</p>
+            <p className="eyebrow lp-eyebrow">Where it helps</p>
             <h2 id="templates-heading" className="lp-section-title">
-              Start from a proven template
+              Start with repeatable decision work
             </h2>
             <div className="lp-template-row">
               <article className="lp-tpl-card lp-tpl-card--featured" aria-label="HR Candidate Screening — deep workflow">
@@ -240,8 +237,8 @@ export default function LandingPage() {
                 <span className="lp-tpl-index" aria-hidden="true">01</span>
                 <h3 className="lp-tpl-title">HR Candidate Screening</h3>
                 <p className="lp-tpl-body">
-                  Intake to specialist agents to human hire/no-hire review.
-                  The full proof-of-concept workflow with parallel lanes and Band audit.
+                  Compare candidates against the role and policy, then hand reviewers
+                  a concise packet with strengths, gaps, questions, and risk notes.
                 </p>
                 <Link href="/workflows/new" className="button primary lp-tpl-cta">
                   Start workflow
@@ -253,8 +250,8 @@ export default function LandingPage() {
                 <span className="lp-tpl-index" aria-hidden="true">02</span>
                 <h3 className="lp-tpl-title">Sales Lead Qualification</h3>
                 <p className="lp-tpl-body">
-                  Score and route inbound leads through ICP-fit, intent, and
-                  budget agents before handing off to an account executive.
+                  Triage inbound leads by fit, urgency, and missing context before
+                  an account executive spends time on the account.
                 </p>
                 <Link href="/workflows/new" className="button lp-tpl-cta">
                   Use template
@@ -266,8 +263,8 @@ export default function LandingPage() {
                 <span className="lp-tpl-index" aria-hidden="true">03</span>
                 <h3 className="lp-tpl-title">Engineering Change Review</h3>
                 <p className="lp-tpl-body">
-                  Route change requests through impact analysis, dependency check,
-                  and risk scoring agents before an engineer approves.
+                  Summarize change impact, dependencies, and review risks so
+                  engineers can approve with better context.
                 </p>
                 <Link href="/workflows/new" className="button lp-tpl-cta">
                   Use template
@@ -281,17 +278,18 @@ export default function LandingPage() {
         <section className="lp-cta-band" aria-labelledby="cta-heading">
           <div className="lp-cta-inner">
             <h2 id="cta-heading" className="lp-cta-title">
-              Ready to run your first workflow?
+              Ready to review a real decision?
             </h2>
             <p className="lp-cta-body">
-              Open the dashboard and start a run from any template in under two minutes.
+              Start with HR Candidate Screening and produce a decision packet your
+              team can actually inspect.
             </p>
             <div className="lp-hero-actions">
               <Link href="/dashboard" className="button lp-btn-lg lp-btn-lime">
-                Open dashboard
+                Review work queue
               </Link>
-              <Link href="/docs" className="button lp-btn-lg lp-btn-ghost-dark">
-                Read the docs
+              <Link href="/workflows/new" className="button lp-btn-lg lp-btn-ghost-dark">
+                Start a workflow
               </Link>
             </div>
           </div>

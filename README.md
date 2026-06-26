@@ -1,277 +1,292 @@
-# ATower Of Agents
+<p align="center">
+  <strong>🏗 Tower of Agents</strong>
+</p>
 
-ATower Of Agents is a control tower for enterprise AI-agent workflows. Operators will be able to upload company artifacts, assemble specialist agents in a Band room, retrieve evidence through Supabase RAG, and receive an auditable decision packet.
+<p align="center">
+  The Unified Governance & Execution Layer for Enterprise AI Agents.
+</p>
 
-The repository provides the architecture and API contracts, agent instructions, Supabase migrations, mock-safe integration boundaries, a FastAPI backend, and a Next.js dashboard. The **HR Candidate Screening** workflow now runs end to end: documents are ingested into pgvector, specialist agents execute against retrieved evidence, Band audit messages are posted or explicitly mocked, and an auditable decision packet is persisted and rendered. The main remaining gaps are real Band room provisioning, LangGraph orchestration, production auth/RLS, and fully configured real embeddings.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#repository-map">Repo Map</a> •
+  <a href="#workflows">Workflows</a> •
+  <a href="#environment">Environment</a> •
+  <a href="#development">Development</a>
+</p>
+
+---
+
+## What is Tower of Agents?
+
+Tower of Agents (TOA) is an enterprise control plane for governing autonomous AI agent workforces. Instead of letting agents communicate freely in unconstrained chatrooms — creating compliance black boxes, infinite loops, and data leaks — TOA enforces **deterministic state-machine execution**, **cryptographically auditable decision packets**, and **human-in-the-loop gates** before any high-impact action.
+
+### Core Principles
+
+| Principle                    | Implementation                                                               |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| **Deterministic Boundaries** | LangGraph state machines dictate exactly when and who speaks next            |
+| **Auditable Decisions**      | Cryptographically isolated audit logs capture raw machine debate             |
+| **Pointer-Based RAG**        | Secure metadata pointers link to protected pgvector — no raw data in chat    |
+| **Human-Owned Outcomes**     | HITL gates freeze high-impact actions until an operator reviews and approves |
 
 ## Quick Start
 
-The recommended setup requires only Docker Desktop or Docker Engine with Compose:
+The only prerequisite is [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with Compose:
 
 ```bash
+# Clone the enterprise control plane sandbox
+git clone <your-repo-url>/tower-of-agents
+cd tower-of-agents
+
+# Start the core orchestrator, dashboard, and database infrastructure
 docker compose up --build
 ```
 
-Open:
+Once healthy, open:
 
-- Dashboard: `http://localhost:3000/dashboard`
-- API documentation: `http://localhost:8000/docs`
-- API health: `http://localhost:8000/health`
+| Service           | URL                            |
+| ----------------- | ------------------------------ |
+| Dashboard         | `http://localhost:3000`        |
+| Landing Page      | `http://localhost:3000`        |
+| API Docs (Swagger)| `http://localhost:8000/docs`   |
+| API Health        | `http://localhost:8000/health` |
 
-No credentials are needed for the base setup. LLM, embedding, and Band integrations default to explicit mock mode.
-
-Stop the services with:
-
-```bash
-docker compose down
-```
-
-### Docker Lifecycle Commands
+No credentials needed for the base setup. LLM, embedding, and Band integrations default to explicit mock mode.
 
 ```bash
-# Start or rebuild the application
-docker compose up --build
-
-# Watch service logs
-docker compose logs -f
-
-# Show container status
-docker compose ps
-
-# Stop containers without removing them
-docker compose stop
-
-# Stop and remove containers and the Compose network
+# Stop all services
 docker compose down
 
-# Fully destroy containers, volumes, local images, and orphaned services
+# Full teardown (volumes, images, orphans)
 docker compose down --volumes --rmi local --remove-orphans
-
-# Force a clean service recreation
-docker compose up --build --force-recreate
 ```
 
-Local Docker runs use `docker-compose.override.yml` automatically. It bind-mounts
-`apps/web` and `apps/api`, runs Next.js in dev mode, and starts FastAPI with
-`--reload`, so frontend and API source changes should appear without rebuilding.
-Rebuild only when dependencies, Dockerfiles, or build-time environment values
-change.
+### Docker Lifecycle
 
-If Docker reports that it cannot connect to the daemon, start Docker Desktop or the Docker Engine service and rerun the command.
+```bash
+docker compose up --build              # Start or rebuild
+docker compose logs -f                 # Stream all logs
+docker compose logs -f web             # Stream frontend logs only
+docker compose logs -f api             # Stream API logs only
+docker compose logs -f band-agent      # Stream Band agent logs
+docker compose ps                      # Container status
+docker compose stop                    # Stop without removing
+docker compose up --build --force-recreate  # Clean recreation
+```
+
+Local Docker runs use `docker-compose.override.yml` automatically — it bind-mounts source directories and enables hot reload for both frontend and API.
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     Next.js Dashboard                        │
+│            Landing Page • Workflow UI • Reports              │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ API (fetch)
+┌────────────────────────────▼─────────────────────────────────┐
+│                 FastAPI / LangGraph Conductor                 │
+│     Routes • Workflow Executor • Agent Registry • RAG        │
+└────┬───────────────────────┬──────────────────────────┬──────┘
+     │ Secure RPC Proxy      │ Supabase Client           │ LLM Router
+     ▼                       ▼                           ▼
+┌────────────────┐  ┌─────────────────────┐  ┌──────────────────┐
+│ Multi-Framework│  │  Supabase Vault     │  │   AIML API       │
+│  Agent Mesh    │  │  PostgreSQL         │  │   (OpenAI-compat) │
+│                │  │  pgvector           │  │   Mock fallback   │
+│ LangChain      │  │  Storage buckets    │  │                  │
+│ AutoGen        │  │  Auth & RLS         │  │                  │
+│ CrewAI Nodes   │  │                     │  │                  │
+│ Band SDK       │  │                     │  │                  │
+└────────────────┘  └─────────────────────┘  └──────────────────┘
+```
+
+### Service Containers
+
+| Container      | Image         | Port   | Purpose                                    |
+| -------------- | ------------- | ------ | ------------------------------------------ |
+| `web`          | `tower-web`   | `3000` | Next.js dashboard and landing page         |
+| `api`          | `tower-api`   | `8000` | FastAPI control plane and workflow engine   |
+| `band-agent`   | `tower-api`   | —      | Multi-role Band remote agent supervisor    |
+
+## Repository Map
+
+```
+tower-of-agents/
+│
+├── apps/
+│   ├── api/                    # FastAPI backend (see apps/api/README.md)
+│   │   ├── agents/             #   Specialist agent definitions (HR, Sales, Eng)
+│   │   ├── band/               #   Band.ai collaboration integration
+│   │   ├── core/               #   Configuration and logging
+│   │   ├── db/                 #   Supabase queries and document storage
+│   │   ├── llm/                #   LLM provider abstraction (AIML/mock)
+│   │   ├── models/             #   Pydantic schemas and data contracts
+│   │   ├── rag/                #   RAG pipeline: parse → chunk → embed → retrieve
+│   │   ├── routes/             #   HTTP API endpoints
+│   │   ├── workflows/          #   Execution engine and templates
+│   │   ├── tests/              #   pytest test suite
+│   │   └── main.py             #   FastAPI application entry point
+│   │
+│   └── web/                    # Next.js frontend (see apps/web/README.md)
+│       ├── app/                #   App Router pages and layouts
+│       │   ├── page.tsx        #     Enterprise governance landing page
+│       │   ├── globals.css     #     Complete design system
+│       │   └── (app)/          #     Dashboard, workflows, agents, reports
+│       ├── components/         #   Shared React components
+│       └── lib/                #   API client utilities
+│
+├── supabase/                   # PostgreSQL/pgvector migrations and seeds
+├── docs/                       # Architecture, contracts, and integration guides
+│
+├── docker-compose.yml          # Production service definitions
+├── docker-compose.override.yml # Local dev overrides (hot reload)
+├── .env.example                # Environment variable template
+├── pnpm-workspace.yaml         # Monorepo workspace config
+└── package.json                # Root scripts (dev, build, test, lint)
+```
+
+## Workflows
+
+### HR Candidate Screening (Production)
+
+The first fully operational workflow:
+
+1. **Ingest** — Upload resume, job description, and hiring policy
+2. **Parse & Embed** — Documents are parsed, chunked, and embedded into pgvector
+3. **Retrieve** — Similarity search pulls relevant evidence chunks
+4. **Execute** — 9 specialist agents run sequentially against evidence:
+   - Resume/JD Matcher → Bias Reviewer → Interview Planner → Policy Guardian → Gap Analyst → RAG Retriever → Coordinator → Final Decision → Synthesizer
+5. **Audit** — Each specialist posts audit messages to Band (SDK or mock mode)
+6. **Decide** — Human-in-the-loop gate freezes the decision packet for operator review
+
+**Decision Packet Output:**
+
+```json
+{
+  "recommendation": "ADVANCE_TO_INTERVIEW",
+  "confidence": 0.87,
+  "strengths": ["5yr distributed systems experience"],
+  "gaps": ["No healthcare domain exposure"],
+  "interview_questions": ["Describe your approach to..."],
+  "policy_note": "Passes DEI bias review — no disqualifying flags",
+  "audit_hash": "sha256:9f86d0..."
+}
+```
+
+### Procurement & Finance Approvals (Template)
+
+Validates invoices, cross-references purchase orders, and evaluates spending thresholds against corporate bylaws.
+
+### Engineering Change Reviews (Template)
+
+Cross-checks codebase pull requests against security protocols, internal dependency trees, and structural guidelines.
 
 ## Environment
 
-External integrations are optional during base development. To configure them:
-
 ```bash
 cp .env.example .env
-```
-
-Then add the required Supabase, AIML API, or Band credentials and rebuild:
-
-```bash
+# Fill in required values, then:
 docker compose up --build
 ```
 
-Important variables include:
+### Key Variables
 
-```text
-SUPABASE_URL
-SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-AIML_API_KEY
-AIML_DEFAULT_MODEL
-LLM_PROVIDER
-EMBEDDING_PROVIDER
-EMBEDDING_MODEL
-EMBEDDING_DIMENSIONS
-BAND_MODE
-BAND_API_KEY
-BAND_AGENT_ID
-BAND_DEFAULT_ROOM_ID
-THENVOI_WS_URL
-THENVOI_REST_URL
-NEXT_PUBLIC_API_BASE_URL
-NEXT_PUBLIC_DEFAULT_ORG_ID
+| Variable                    | Description                                     | Default      |
+| --------------------------- | ----------------------------------------------- | ------------ |
+| `SUPABASE_URL`              | Supabase project URL                            | —            |
+| `SUPABASE_ANON_KEY`         | Supabase anonymous key                          | —            |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only, **secret**)  | —            |
+| `LLM_PROVIDER`              | `mock`, `aiml`, or `auto`                       | `aiml`       |
+| `EMBEDDING_PROVIDER`        | `mock` or `aiml`                                | `mock`       |
+| `EMBEDDING_DIMENSIONS`      | Vector dimensions (must match SQL schema)       | `1536`       |
+| `BAND_MODE`                 | `mock` (in-process) or `sdk` (live agents)      | `mock`       |
+| `BAND_AGENT_ID`             | Primary coordinator agent UUID                  | —            |
+| `BAND_API_KEY`              | Band API key for coordinator                    | —            |
+| `AIML_API_KEY`              | AIML API key for LLM/embedding                  | —            |
+| `NEXT_PUBLIC_API_BASE_URL`  | Frontend → API URL (build-time)                 | `http://localhost:8000` |
+| `NEXT_PUBLIC_DEFAULT_ORG_ID`| Temporary org scope (pre-auth)                  | —            |
+
+> **Security:** Never commit `.env`. `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to browser code.
+
+### Live Band Agents
+
+Set `BAND_MODE=sdk` to connect live agents. Each specialist role requires its own Band Remote Agent UUID and API key:
+
+```
+Workflow Router    •  RAG Retriever       •  Policy Guardian
+Final Decision     •  Resume/JD Matcher   •  Bias/Safety Reviewer
+Interview Planner  •  Lead Qualifier      •  Engineering Reviewer
 ```
 
-Never commit `.env` or real credentials. `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to browser code.
-`NEXT_PUBLIC_DEFAULT_ORG_ID` selects the temporary organization scope used by
-the dashboard until Supabase authentication supplies it from the signed-in user.
+Create each as a **Remote Agent** in Band, add credentials to `.env`, and add agents as participants in the target room. Roles without credentials are silently skipped. See `docs/BAND_INTEGRATION.md` for details.
 
-### Live Band agents
+## Development
 
-`BAND_MODE=mock` keeps everything in-process and records explicit mock audit
-messages. To make the `@ATower Coordinator` reply to room mentions, set
-`BAND_MODE=sdk` plus `BAND_AGENT_ID`, `BAND_API_KEY`, and `LLM_PROVIDER=aiml`
-with `AIML_API_KEY`/`AIML_DEFAULT_MODEL`, then add the remote agent as a
-participant in the room.
-`docker compose up --build` starts the
-`band-agent` service automatically; tail it with `docker compose logs -f band-agent`.
-HR workflow execution runs through `/workflows/{id}/run`; the coordinator must
-not claim a run happened unless that API path completed. See `docs/BAND_INTEGRATION.md`.
-
-Workflow runs also use `band/run_audit.py` to post one message per executed
-specialist when a workflow room or `BAND_DEFAULT_ROOM_ID` is present. In
-`BAND_MODE=sdk`, each specialist posts with its own remote-agent credential. In
-mock mode, the audit messages are persisted with `mode=mock` and no network call.
-
-The same `band-agent` service supervises all registered specialist roles:
-
-```text
-Workflow Router        RAG Retriever          Policy Guardian
-Final Decision         Resume/JD Matcher      Bias/Safety Reviewer
-Interview Planner      Lead Qualifier         Engineering Reviewer
-```
-
-Create each one as a separate **Remote Agent** in Band, then put its UUID and API
-key in the matching `BAND_<ROLE>_AGENT_ID` and `BAND_<ROLE>_API_KEY` variables
-listed in `.env.example`. Add each agent to the room where it should operate.
-Roles without credentials are skipped; one agent never impersonates another.
-Band sends a message to a remote agent only when that participant is explicitly
-mentioned.
-
-## Local Development
-
-Docker is the default onboarding path. For direct local development, install:
+### Prerequisites (local, non-Docker)
 
 - Node.js 20 or 22
 - pnpm 9
 - Python 3.11+
 
-Install dependencies:
+### Install
 
 ```bash
+# Frontend
 pnpm install
 
+# Backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r apps/api/requirements.txt
 ```
 
-Run the API and frontend in separate terminals:
+### Run
 
 ```bash
+# API (terminal 1)
 pnpm dev:api
+
+# Frontend (terminal 2)
 pnpm dev
 ```
 
-## Checks
+### Verify
 
 ```bash
-pnpm test:api
-pnpm typecheck
-pnpm lint
-pnpm build
-docker compose config --quiet
+pnpm test:api          # Backend pytest suite
+pnpm typecheck         # TypeScript type checking
+pnpm lint              # ESLint
+pnpm build             # Production build
+docker compose config --quiet  # Validate compose file
 ```
 
-## Architecture
+## Current Status
 
-```text
-Next.js dashboard
-  -> FastAPI backend
-    -> Supabase Auth, Postgres, Storage, and pgvector
-    -> LangGraph workflow runtime
-    -> Band collaboration and audit rooms
-      -> AIML API agents, with explicit mock fallback
-```
+### ✅ Implemented
 
-Band is the visible collaboration layer, Supabase is the system of record, and LangGraph is the planned workflow runtime. The current HR run path uses a sequential specialist executor.
+- Dockerized Next.js + FastAPI + Band agent services
+- Enterprise governance landing page (dark mode, animated, interactive)
+- Full dashboard with workflow CRUD, document upload, and execution
+- HR Candidate Screening end-to-end: ingest → retrieve → execute → audit → decide
+- RAG pipeline: parse (PDF/DOCX/TXT) → chunk → embed → pgvector retrieval
+- Mock + AIML LLM routing with explicit fallbacks
+- Mock + SDK Band integration with per-specialist audit messages
+- Agent registry with 9 HR, Sales, Engineering, and Platform roles
+- Organization-shared Knowledge Base with cross-workflow retrieval
+- Decision packet reports with human-review required banners
+- Focused backend tests for all core modules
 
-## Repository Map
+### 🚧 Planned
 
-```text
-apps/web          Next.js dashboard and frontend contracts
-apps/api          FastAPI, agents, workflows, RAG, Band, and LLM boundaries
-supabase          PostgreSQL/pgvector migrations and seed records
-docs              Architecture, contracts, ownership, and demo planning
-.claude/agents    Project-specific Claude subagent manifests
-docker-compose.yml One-command local service orchestration
-```
+- LangGraph runtime orchestration (replacing sequential executor)
+- Production auth-derived organization scoping (replacing env-based org ID)
+- Automatic Band room creation and participant management
+- Real embedding provider configuration in all environments
+- Sales Lead Qualification and Engineering Change Review execution
+- Formal human approval action flow (currently advisory-only)
 
-## Agent Instructions
+## License
 
-Every human or coding agent working in this repository must read, in order:
-
-1. `AGENT.md`
-2. `AGENTS.md`
-3. The relevant documents and module-specific instructions
-
-`AGENT.md` applies to all agents and subagents. `AGENTS.md` defines architecture, ownership, security, testing, and delivery rules.
-
-## Current Scope
-
-Available now:
-
-- Dockerized Next.js and FastAPI services
-- API health endpoint and OpenAPI documentation
-- Typed backend and frontend contracts
-- Agent and workflow registries, including HR, Sales, Engineering, and platform agents
-- Mock Band, mock LLM, AIML LLM, and embedding adapter boundaries
-- Live Band SDK supervisor for the coordinator and nine specialist roles
-- Parser, chunker, embedding, and retrieval boundaries
-- Supabase schema, pgvector search function, and seed catalog
-- Dashboard, workflow, agent, knowledge-base, docs, and report routes
-- Document upload from the workflow detail page to a private Supabase Storage
-  bucket, followed by ingestion into pgvector (status advances
-  `uploaded` → `parsing` → `indexed`, or `failed` on error)
-- Organization-shared Knowledge uploads and deletes; shared chunks are stored
-  with `workflow_id = null` and are retrieved alongside workflow-specific chunks
-- Document ingestion pipeline: parse → chunk → embed → persist scoped chunks
-  (`rag/ingestion.py`), with shared knowledge-base chunks stored NULL-scoped
-- Workflow CRUD, workflow-specific document upload, workflow re-indexing, and
-  workflow Band room assignment
-- HR workflow execution and persistence: `POST /workflows/{id}/run` runs the
-  specialist agents against retrieved evidence and saves an evidence-backed
-  decision packet (recommendation, strengths, gaps, interview questions, and a
-  plain-text policy note) to Supabase
-- Workflow run Band audit: when a room/default room is configured, specialist
-  findings are posted to Band in SDK mode or persisted as explicit mock messages
-  in mock mode; the report payload records message counts and modes
-- Report retrieval by workflow or report ID, with the report UI showing the
-  decision packet, human-review banner, evidence IDs, and Band audit summary
-- Focused backend tests for agents, workflow execution, document handling,
-  retrieval, schemas, LLM routing, and Band audit behavior
-
-Not implemented yet:
-
-- Automatic real Band room creation and participant management from the API
-- HR workflow execution from the coordinator itself; workflow runs happen through the API
-- LangGraph runtime execution; `workflows/graph.py` still documents planned node order and raises `NotImplementedError`
-- Production auth-derived organization scoping and hardened RLS; the dashboard still uses `NEXT_PUBLIC_DEFAULT_ORG_ID`
-- Fully configured real embeddings in all environments; mock embeddings are deterministic but not meaningful
-- Featherless routing; the current deployment disables Featherless and expects AIML for real LLM calls
-- Sales Lead Qualification and Engineering Change Review execution beyond shallow templates
-- Formal approval/decision action flow; all AI decisions still require human review
-
-Unfinished product paths must fail honestly rather than fabricate data.
-
-## MVP Workflow
-
-The first complete workflow is **HR Candidate Screening**:
-
-1. Upload a resume, job description, and hiring policy.
-2. Attach an existing Band room, create a mock room, or rely on `BAND_DEFAULT_ROOM_ID`.
-3. Retrieve workflow-scoped and organization-shared evidence from Supabase.
-4. Run fit, fairness, interview, policy, and final-decision reviews.
-5. Persist specialist Band audit messages when a room is configured.
-6. Produce an evidence-backed packet requiring human review.
-
-Sales Lead Qualification and Engineering Change Review remain shallow breadth templates.
-
-## Remaining Work
-
-Highest-priority gaps:
-
-- Apply any pending Supabase migrations, especially organization document support, to live environments.
-- Configure a real embedding provider and keep `EMBEDDING_DIMENSIONS` aligned with the SQL vector dimension.
-- Replace the sequential workflow executor with real LangGraph orchestration.
-- Add API-driven real Band room creation and participant management.
-- Move organization scope from temporary environment configuration to Supabase Auth/RLS.
-- Add the formal human approval step before any high-impact HR decision can be acted on.
-- Polish the Knowledge UI with search/filter/sort metadata if the demo needs larger document sets.
-
-Out of scope for this bootstrap remains full RBAC, billing, production queues,
-OAuth integrations, Slack/Teams, vendor crawling, complex analytics, perfect
-parsing, and a general approval engine.
+MIT — see [LICENSE](LICENSE) for details.

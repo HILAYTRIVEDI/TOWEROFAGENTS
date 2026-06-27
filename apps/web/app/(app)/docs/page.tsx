@@ -195,10 +195,11 @@ export default function DocsPage() {
                 Admins create the Band remote agents once and store credentials
                 in environment variables. End users only create workflow drafts,
                 upload artifacts, and mention agents in the configured room.
+                Dedicated Band rooms can optionally be automatically provisioned per-workflow.
               </p>
             </div>
             <ol className="manual-steps">
-              <li>Open the shared ATower Band room.</li>
+              <li>Open the workflow's dedicated Band room, or the shared default ATower room.</li>
               <li>Confirm the coordinator and specialists are participants.</li>
               <li>Mention agents with their full handle, including the user namespace.</li>
               <li>Never paste credentials, resumes, or private docs into public rooms.</li>
@@ -229,7 +230,6 @@ export default function DocsPage() {
 
           <ManualSection id="limits" title="Current MVP Limits">
             <ul className="manual-list">
-              <li>Workflow execution is not implemented yet; run endpoints return 501.</li>
               <li>Agent outputs are advisory and require human review.</li>
               <li>Agents must not invent evidence IDs, citations, scores, or outcomes.</li>
               <li>Missing provider credentials must produce explicit unconfigured behavior.</li>

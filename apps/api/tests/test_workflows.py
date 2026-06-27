@@ -119,6 +119,20 @@ class FakeWorkflowRepository:
             return []
         return self.agent_findings
 
+    async def submit_workflow_review(
+        self,
+        report_id: UUID,
+        review_status: str,
+        note: str | None,
+        reviewed_at: datetime,
+    ) -> dict:
+        if self.report is None:
+            raise RuntimeError("No report to review")
+        self.report["review_status"] = review_status
+        self.report["reviewer_note"] = note
+        self.report["reviewed_at"] = reviewed_at
+        return self.report
+
 
 class FailingWorkflowRepository(FakeWorkflowRepository):
     async def list_workflows(self, org_id: UUID) -> list[dict]:
@@ -324,14 +338,19 @@ def test_set_workflow_band_session_can_create_mock_room() -> None:
     assert response.json()["band_room_id"].startswith("mock-room-")
 
 
-def test_real_band_session_creation_requires_existing_room_id() -> None:
+def test_sdk_band_session_without_creds_returns_unconfigured_error() -> None:
+    """sdk mode with no credentials must return an explicit unconfigured error, not a mock room.
+
+    Explicitly clear band_api_key and band_agent_id to override any values that
+    pydantic-settings may load from a local .env file.
+    """
     repository = FakeWorkflowRepository()
     app.dependency_overrides[get_settings] = lambda: Settings(
         llm_provider="mock",
         embedding_provider="mock",
         band_mode="sdk",
-        band_api_key="key",
-        band_agent_id="agent",
+        band_api_key=None,
+        band_agent_id=None,
     )
     app.dependency_overrides[get_workflow_repository] = lambda: repository
     try:
@@ -342,8 +361,10 @@ def test_real_band_session_creation_requires_existing_room_id() -> None:
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 400
-    assert "paste its room ID" in response.json()["detail"]
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert "BAND_API_KEY" in detail
+    assert "BAND_AGENT_ID" in detail
 
 
 def test_delete_workflow_returns_no_content() -> None:
@@ -534,3 +555,121 @@ def test_get_missing_workflow_report_returns_not_found() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Human-approval gate tests (HR candidate-screening only)
+# ---------------------------------------------------------------------------
+
+def _seed_report(repository: FakeWorkflowRepository, *, review_status: str = "pending_review") -> None:
+    """Pre-seed a workflow report in the fake repository."""
+    repository.report = {
+        "id": repository.report_id,
+        "workflow_id": repository.workflow_id,
+        "recommendation": "human_review_required",
+        "summary": "Mock run summary",
+        "fit_score": None,
+        "strengths": [],
+        "gaps": [],
+        "interview_questions": [],
+        "policy_note": None,
+        "evidence_chunk_ids": [],
+        "requires_human_review": True,
+        "report_payload": {},
+        "review_status": review_status,
+        "reviewer_note": None,
+        "reviewed_at": None,
+    }
+
+
+def test_fresh_report_has_pending_review_status() -> None:
+    repository = FakeWorkflowRepository()
+    _seed_report(repository)
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).get(f"/workflows/{repository.workflow_id}/report")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["review_status"] == "pending_review"
+    assert response.json()["reviewer_note"] is None
+    assert response.json()["reviewed_at"] is None
+
+
+def test_approve_review_persists_note_and_timestamp() -> None:
+    repository = FakeWorkflowRepository()
+    _seed_report(repository)
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/review",
+            json={"decision": "approve", "note": "Strong candidate, proceed."},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["review_status"] == "approved"
+    assert body["reviewer_note"] == "Strong candidate, proceed."
+    assert body["reviewed_at"] is not None
+    assert body["report_id"] == str(repository.report_id)
+    assert body["workflow_id"] == str(repository.workflow_id)
+    # Confirm repository state was mutated
+    assert repository.report is not None
+    assert repository.report["review_status"] == "approved"
+    assert repository.report["reviewer_note"] == "Strong candidate, proceed."
+    assert repository.report["reviewed_at"] is not None
+
+
+def test_reject_review_persists_status() -> None:
+    repository = FakeWorkflowRepository()
+    _seed_report(repository)
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/review",
+            json={"decision": "reject", "note": "Skills gap too large."},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["review_status"] == "rejected"
+    assert response.json()["reviewer_note"] == "Skills gap too large."
+    assert repository.report is not None
+    assert repository.report["review_status"] == "rejected"
+
+
+def test_re_review_already_resolved_report_returns_409() -> None:
+    repository = FakeWorkflowRepository()
+    _seed_report(repository, review_status="approved")
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/review",
+            json={"decision": "reject"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "already been reviewed" in response.json()["detail"]
+
+
+def test_review_report_that_does_not_require_review_returns_400() -> None:
+    repository = FakeWorkflowRepository()
+    _seed_report(repository)
+    repository.report["requires_human_review"] = False  # type: ignore[index]
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            f"/workflows/{repository.workflow_id}/review",
+            json={"decision": "approve"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert "does not require human review" in response.json()["detail"]

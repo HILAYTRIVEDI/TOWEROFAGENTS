@@ -160,10 +160,18 @@ export default async function WorkflowDetailPage({
         ) : null}
         {existingReport ? (
           <>
-            <p>
+            <p style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <span className={`status-badge status-${existingReport.recommendation}`}>
                 {existingReport.recommendation.replaceAll("_", " ")}
               </span>
+              {existingReport.review_status ? (
+                <span
+                  className={`status-badge status-${existingReport.review_status}`}
+                  role="status"
+                >
+                  {existingReport.review_status.replaceAll("_", " ")}
+                </span>
+              ) : null}
             </p>
             <p className="workflow-row-content" style={{ marginTop: "0.75rem" }}>
               {cleanWorkflowText(existingReport.summary)}

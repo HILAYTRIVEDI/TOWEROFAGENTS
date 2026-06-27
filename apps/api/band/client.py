@@ -7,12 +7,15 @@ chain and honest mock/real/failed mode tracking.
 
 import logging
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Callable, Coroutine, Protocol
 from uuid import uuid4
 
 from core.config import Settings
 
 logger = logging.getLogger(__name__)
+
+# Band REST base default — mirrors coordinator.py DEFAULT_THENVOI_REST_URL.
+_DEFAULT_REST_URL = "https://app.band.ai"
 
 
 @dataclass(frozen=True)
@@ -46,19 +49,81 @@ class MockBandClient:
         return message
 
 
+async def _default_http_post(url: str, *, headers: dict, json: dict) -> tuple[int, dict]:
+    """Default HTTP poster using httpx. Degrades to RuntimeError if httpx is absent."""
+    try:
+        import httpx  # lazy import — already in requirements.txt
+    except ImportError as exc:
+        raise RuntimeError(
+            "httpx is required for real Band posting but is not installed. "
+            "Install httpx or run with BAND_MODE=mock."
+        ) from exc
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(url, headers=headers, json=json)
+        try:
+            body = response.json()
+        except Exception:  # noqa: BLE001
+            body = {"_raw": response.text}
+        return response.status_code, body
+
+
 class BandSDKClient:
-    def __init__(self, settings: Settings) -> None:
+    """In-process Band REST client for room creation and generic message posting.
+
+    Uses Band's Agent REST API directly (X-API-Key auth, coordinator credentials).
+    http_post is injectable for testing without network:
+        async def http_post(url, *, headers, json) -> (status_code, body_dict)
+
+    The room creation endpoint (POST /api/v1/agent/chats) is inferred from the
+    Band Agent API naming convention established in run_audit.py and band_ai_docs.md.
+    It cannot be verified without live credentials — canary: the endpoint and
+    response shape must be confirmed against Band's live API when keys are available.
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        http_post: Callable[..., Coroutine[Any, Any, tuple[int, dict]]] | None = None,
+    ) -> None:
         if not settings.band_api_key or not settings.band_agent_id:
-            raise RuntimeError("Band credentials are not configured")
-        # In-process, request-scoped SDK posting (create_room/post_message) is not
-        # implemented. The live Band integration runs as the standalone coordinator
-        # process (band.coordinator / the `band-agent` compose service), which keeps
-        # a WebSocket open and replies to mentions. This client is not used in the
-        # live path; do not present it as one.
-        raise NotImplementedError(
-            "In-process Band SDK posting is not implemented. Run the band-agent "
-            "coordinator process for live Band integration (see docs/BAND_INTEGRATION.md)."
-        )
+            raise RuntimeError(
+                "Band SDK is not configured: BAND_API_KEY and BAND_AGENT_ID must be set."
+            )
+        self._api_key: str = settings.band_api_key
+        self._rest_base = (settings.thenvoi_rest_url or _DEFAULT_REST_URL).rstrip("/")
+        self._http_post = http_post or _default_http_post
+
+    async def create_room(self, name: str) -> str:
+        # ponytail: endpoint is POST /api/v1/agent/chats, inferred from the
+        # Band Agent API path used in run_audit.py (/api/v1/agent/chats/{id}/messages).
+        # Response shape {"data": {"id": "..."}} follows the same convention.
+        # Both must be verified against live Band API when credentials are available.
+        url = f"{self._rest_base}/api/v1/agent/chats"
+        headers = {"X-API-Key": self._api_key, "Content-Type": "application/json"}
+        body = {"name": name}
+        status_code, data = await self._http_post(url, headers=headers, json=body)
+        if status_code < 200 or status_code >= 300:
+            raise RuntimeError(
+                f"[sdk-band] create_room returned HTTP {status_code}: {data}"
+            )
+        room_id = (data.get("data") or {}).get("id")
+        if not room_id:
+            raise RuntimeError(f"[sdk-band] create_room: no room id in response: {data}")
+        logger.info("[sdk-band] created room %s (%s)", room_id, name)
+        return str(room_id)
+
+    async def post_message(self, room_id: str, content: str) -> BandMessage:
+        url = f"{self._rest_base}/api/v1/agent/chats/{room_id}/messages"
+        headers = {"X-API-Key": self._api_key, "Content-Type": "application/json"}
+        body = {"message": {"content": content, "mentions": []}}
+        status_code, data = await self._http_post(url, headers=headers, json=body)
+        if status_code < 200 or status_code >= 300:
+            raise RuntimeError(
+                f"[sdk-band] post_message returned HTTP {status_code}: {data}"
+            )
+        band_id = (data.get("data") or {}).get("id") or f"sdk-message-{uuid4()}"
+        return BandMessage(id=str(band_id), room_id=room_id, content=content, mode="real")
 
 
 def create_band_client(settings: Settings) -> BandClient:

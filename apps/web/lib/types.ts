@@ -52,6 +52,16 @@ export interface HealthStatus {
   integrations: Record<string, string>;
 }
 
+export type ReviewStatus = "pending_review" | "approved" | "rejected";
+
+export interface WorkflowReviewRead {
+  report_id: string;
+  workflow_id: string;
+  review_status: ReviewStatus;
+  reviewer_note: string | null;
+  reviewed_at: string;
+}
+
 export interface WorkflowReport {
   id: string;
   workflow_id: string;
@@ -64,6 +74,9 @@ export interface WorkflowReport {
   policy_note?: string | null;
   evidence_chunk_ids: string[];
   requires_human_review: boolean;
+  review_status: ReviewStatus | null;
+  reviewer_note: string | null;
+  reviewed_at: string | null;
   report_payload?: {
     band_audit?: {
       room_id?: string | null;

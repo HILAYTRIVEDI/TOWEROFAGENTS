@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -53,6 +54,14 @@ class WorkflowRepository(Protocol):
     async def save_agent_finding(self, finding: dict[str, Any]) -> dict[str, Any]: ...
 
     async def get_agent_findings(self, workflow_id: UUID) -> list[dict[str, Any]]: ...
+
+    async def submit_workflow_review(
+        self,
+        report_id: UUID,
+        review_status: str,
+        note: str | None,
+        reviewed_at: datetime,
+    ) -> dict[str, Any]: ...
 
 
 class SupabaseWorkflowRepository:
@@ -110,6 +119,17 @@ class SupabaseWorkflowRepository:
 
     async def get_agent_findings(self, workflow_id: UUID) -> list[dict[str, Any]]:
         return await asyncio.to_thread(self._get_agent_findings, workflow_id)
+
+    async def submit_workflow_review(
+        self,
+        report_id: UUID,
+        review_status: str,
+        note: str | None,
+        reviewed_at: datetime,
+    ) -> dict[str, Any]:
+        return await asyncio.to_thread(
+            self._submit_workflow_review, report_id, review_status, note, reviewed_at
+        )
 
     def _create_workflow(self, payload: WorkflowCreate) -> dict[str, Any]:
         template_id = None
@@ -285,6 +305,29 @@ class SupabaseWorkflowRepository:
             .execute()
         )
         return response.data or []
+
+    def _submit_workflow_review(
+        self,
+        report_id: UUID,
+        review_status: str,
+        note: str | None,
+        reviewed_at: datetime,
+    ) -> dict[str, Any]:
+        response = (
+            self._client.table("workflow_reports")
+            .update(
+                {
+                    "review_status": review_status,
+                    "reviewer_note": note,
+                    "reviewed_at": reviewed_at.isoformat(),
+                }
+            )
+            .eq("id", str(report_id))
+            .execute()
+        )
+        if not response.data:
+            raise RuntimeError("Supabase report review update returned no data")
+        return response.data[0]
 
     @staticmethod
     def _normalize_workflow(row: dict[str, Any]) -> dict[str, Any]:

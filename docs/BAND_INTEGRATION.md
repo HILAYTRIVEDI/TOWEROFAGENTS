@@ -8,7 +8,8 @@ specialist finding message per executed agent and mirror the metadata into
 `BandClient` is the adapter contract:
 
 - `MockBandClient` creates local IDs and logs clearly labeled mock messages.
-- `BandSDKClient` will wrap the real SDK and must fail as unconfigured until implemented.
+- `BandSDKClient` makes real Band REST calls (X-API-Key auth). Raises `RuntimeError` at
+  construction when `BAND_API_KEY` or `BAND_AGENT_ID` are unset.
 
 The generic `BandClient` remains the room/generic-message adapter. Workflow-run
 audit posting uses `band.run_audit.WorkflowRoomAuditor` instead because each
@@ -51,12 +52,18 @@ room instead of the shared default.
 The backend endpoint is `POST /workflows/{id}/band-session`:
 
 - `{ "band_room_id": "..." }` assigns an existing real Band room/session.
-- `{ "create_mock_session": true }` creates a mock room only when
-  `BAND_MODE=mock`.
+- `{ "create_mock_session": true }` behaviour depends on `BAND_MODE`:
+  - `BAND_MODE=mock` — creates a local mock room (no network call).
+  - `BAND_MODE=sdk` + credentials present — calls `POST /api/v1/agent/chats` on
+    Band's REST API via `BandSDKClient`, stores the returned room ID, and uses it
+    for all subsequent run audit posts. This is the automatic real room creation path.
+  - `BAND_MODE=sdk` + credentials absent — returns HTTP 503 with an explicit message
+    naming the missing variables. Never silently falls back to mock.
 
-Automatic real Band room creation from the request-scoped API path is not
-implemented. In `BAND_MODE=sdk`, create the room in Band.ai, add the coordinator,
-reviewer, and specialists as participants, then paste the room ID into ATower.
+**Canary:** The `create_room()` request body field and the exact endpoint path are
+inferred from Band Agent API naming conventions and must be verified against Band's
+live API when credentials are available. A live 422 response during development
+indicated the body shape is wrong; correct it once the API contract is confirmed.
 
 ## Live agents
 
@@ -134,6 +141,9 @@ The specialist catalog contains:
   mode) fail fast at startup with an
   explicit message naming the missing variable.
 
-> `BandSDKClient` (the in-process, request-scoped poster) remains intentionally
-> unimplemented and raises `NotImplementedError`. The live path is the remote-agent
-> supervisor process, not that client.
+`BandSDKClient` is now implemented as the in-process, request-scoped REST client.
+It handles room creation (`create_room`) and generic message posting (`post_message`)
+using `X-API-Key` auth. The injectable `http_post` parameter makes it testable without
+network access. The long-lived coordinator/specialist WebSocket connection remains the
+concern of the remote-agent supervisor process (`band/remote_agents.py`, `band/coordinator.py`),
+not this client.

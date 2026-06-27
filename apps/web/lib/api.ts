@@ -8,6 +8,7 @@ import type {
   Workflow,
   WorkflowCreate,
   WorkflowReport,
+  WorkflowReviewRead,
 } from "@/lib/types";
 
 const PUBLIC_API_BASE_URL =
@@ -205,6 +206,17 @@ export function getWorkflowFindings(workflowId: string): Promise<AgentFindingRea
 
 export function getReport(reportId: string): Promise<WorkflowReport> {
   return apiRequest(`/reports/${reportId}`, { cache: "no-store" });
+}
+
+export function submitReview(
+  workflowId: string,
+  decision: "approve" | "reject",
+  note?: string,
+): Promise<WorkflowReviewRead> {
+  return apiRequest(`/workflows/${workflowId}/review`, {
+    method: "POST",
+    body: JSON.stringify({ decision, ...(note !== undefined ? { note } : {}) }),
+  });
 }
 
 export function runWorkflow(

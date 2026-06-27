@@ -886,6 +886,21 @@ h3 {
   background: #ebe9df;
 }
 
+.status-badge.status-pending_review {
+  color: #7a5b00;
+  background: #f5ebcf;
+}
+
+.status-badge.status-approved {
+  color: var(--green-dark);
+  background: var(--lime);
+}
+
+.status-badge.status-rejected {
+  color: var(--red);
+  background: #f6e3e0;
+}
+
 .domain-count-list {
   display: grid;
   gap: 10px;

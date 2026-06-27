@@ -1,5 +1,6 @@
 import logging
 from collections import Counter
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import (
@@ -22,10 +23,13 @@ from db.supabase_client import create_supabase_client
 from models.schemas import (
     AgentFindingRead,
     BandMessageRead,
+    ReviewStatus,
     WorkflowBandSessionRequest,
     WorkflowCreate,
     WorkflowRead,
     WorkflowReportRead,
+    WorkflowReviewRead,
+    WorkflowReviewRequest,
     WorkflowRunRequest,
 )
 from rag.embeddings import EmbeddingProvider
@@ -164,13 +168,19 @@ async def set_workflow_band_session(
 
     band_room_id = (payload.band_room_id or "").strip()
     if not band_room_id and payload.create_mock_session:
-        if settings.band_mode != "mock":
+        if settings.band_mode == "sdk":
+            if not settings.band_api_key or not settings.band_agent_id:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=(
+                        "Band SDK is not configured: BAND_API_KEY and BAND_AGENT_ID must be set. "
+                        "Set those variables, or paste an existing room ID instead."
+                    ),
+                )
+        elif settings.band_mode != "mock":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Automatic real Band room creation is not implemented. "
-                    "Create a Band room in Band.ai and paste its room ID."
-                ),
+                detail=f"Unsupported BAND_MODE: {settings.band_mode!r}. Use 'mock' or 'sdk'.",
             )
         template = get_template(workflow["template_slug"]) if workflow.get("template_slug") else None
         agent_names = template.agent_slugs if template else []
@@ -411,3 +421,51 @@ async def get_workflow_findings(
 ) -> list[AgentFindingRead]:
     rows = await repository.get_agent_findings(workflow_id)
     return [AgentFindingRead.model_validate(row) for row in rows]
+
+
+@router.post("/{workflow_id}/review", response_model=WorkflowReviewRead)
+async def submit_workflow_review(
+    workflow_id: UUID,
+    payload: WorkflowReviewRequest,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+) -> WorkflowReviewRead:
+    report = await repository.get_workflow_report(workflow_id)
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow report not found",
+        )
+
+    if not report.get("requires_human_review"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This report does not require human review",
+        )
+
+    current_status = report.get("review_status", ReviewStatus.PENDING_REVIEW)
+    if current_status != ReviewStatus.PENDING_REVIEW:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Report has already been reviewed (current status: {current_status})",
+        )
+
+    review_status = (
+        ReviewStatus.APPROVED if payload.decision == "approve" else ReviewStatus.REJECTED
+    )
+    reviewed_at = datetime.now(UTC)
+    report_id = UUID(str(report["id"]))
+
+    await repository.submit_workflow_review(
+        report_id=report_id,
+        review_status=review_status.value,
+        note=payload.note,
+        reviewed_at=reviewed_at,
+    )
+
+    return WorkflowReviewRead(
+        report_id=report_id,
+        workflow_id=workflow_id,
+        review_status=review_status,
+        reviewer_note=payload.note,
+        reviewed_at=reviewed_at,
+    )

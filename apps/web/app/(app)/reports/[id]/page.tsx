@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { ReportReviewPanel } from "@/components/report-review-panel";
 import { ApiError, getReport } from "@/lib/api";
 
 export default async function ReportPage({
@@ -55,12 +56,22 @@ export default async function ReportPage({
         description="Agent screening decision, evidence, and recommended next steps."
       />
 
-      {report.requires_human_review ? (
+      {report.requires_human_review &&
+      report.review_status !== "approved" &&
+      report.review_status !== "rejected" ? (
         <p className="notice error" role="alert">
           Human review required — this decision must not be acted upon without a
           qualified reviewer.
         </p>
       ) : null}
+
+      <ReportReviewPanel
+        initialStatus={report.review_status}
+        requiresHumanReview={report.requires_human_review}
+        reviewedAt={report.reviewed_at}
+        reviewerNote={report.reviewer_note}
+        workflowId={report.workflow_id}
+      />
 
       <section className="detail-grid">
         <article className="detail-card">

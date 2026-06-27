@@ -39,7 +39,7 @@ export default async function DashboardPage() {
       ) : null}
 
       {orgId && !loadError && workflows.length === 0 ? (
-        <EmptyState title="No workflows yet">
+        <EmptyState actionHref="/workflows/new" title="No workflows yet">
           Create a workflow from the workflow library to see it appear here,
           grouped by domain.
         </EmptyState>

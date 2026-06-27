@@ -22,9 +22,21 @@ const TEMPLATES = {
 
 type TemplateSlug = keyof typeof TEMPLATES;
 
-export function WorkflowCreateForm({ orgId }: { orgId: string }) {
+function isTemplateSlug(value: string | undefined): value is TemplateSlug {
+  return value !== undefined && value in TEMPLATES;
+}
+
+export function WorkflowCreateForm({
+  initialTemplate,
+  orgId,
+}: {
+  initialTemplate?: string;
+  orgId: string;
+}) {
   const router = useRouter();
-  const [template, setTemplate] = useState<TemplateSlug>("hr-candidate-screening");
+  const [template, setTemplate] = useState<TemplateSlug>(
+    isTemplateSlug(initialTemplate) ? initialTemplate : "hr-candidate-screening",
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 

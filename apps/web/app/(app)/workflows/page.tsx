@@ -65,7 +65,7 @@ export default async function WorkflowsPage() {
           ))}
         </ul>
       ) : orgId && !error ? (
-        <EmptyState title="No workflow records yet">
+        <EmptyState actionHref="/workflows/new" title="No workflow records yet">
           Create the first workflow. The backend will persist it as a draft.
         </EmptyState>
       ) : null}

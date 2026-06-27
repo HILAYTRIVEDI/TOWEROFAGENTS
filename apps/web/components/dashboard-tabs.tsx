@@ -55,10 +55,19 @@ function countByStatus(workflows: Workflow[]): Partial<Record<WorkflowStatus, nu
   return counts;
 }
 
-function WorkflowList({ workflows }: { workflows: Workflow[] }) {
+function WorkflowList({
+  createHref = "/workflows/new",
+  workflows,
+}: {
+  createHref?: string;
+  workflows: Workflow[];
+}) {
   if (workflows.length === 0) {
     return (
-      <EmptyState title="No workflows in this domain yet">
+      <EmptyState
+        actionHref={createHref}
+        title="No workflows in this domain yet"
+      >
         Workflow records for this domain will appear here once created from
         the workflow library.
       </EmptyState>
@@ -86,7 +95,13 @@ function WorkflowList({ workflows }: { workflows: Workflow[] }) {
   );
 }
 
-function ProcessActivityPanel({ label }: { label: string }) {
+function ProcessActivityPanel({
+  createHref = "/workflows/new",
+  label,
+}: {
+  createHref?: string;
+  label: string;
+}) {
   return (
     <section aria-label="Process activity">
       <div className="section-heading">
@@ -95,7 +110,10 @@ function ProcessActivityPanel({ label }: { label: string }) {
           <h2>Agent findings &amp; Band audit</h2>
         </div>
       </div>
-      <EmptyState title="Live activity feed pending backend runtime">
+      <EmptyState
+        actionHref={createHref}
+        title="Live activity feed pending backend runtime"
+      >
         {label} Run execution, agent findings, and Band audit messages will
         appear here once the workflow run endpoints are implemented.
       </EmptyState>
@@ -142,12 +160,15 @@ function DomainMetricStrip({
 
 function HrEngineeringSalesPanel({
   domainLabel,
+  templateSlug,
   workflows,
 }: {
   domainLabel: string;
+  templateSlug: string;
   workflows: Workflow[];
 }) {
   const statusCounts = useMemo(() => countByStatus(workflows), [workflows]);
+  const createHref = `/workflows/new?template_slug=${encodeURIComponent(templateSlug)}`;
 
   return (
     <>
@@ -159,9 +180,10 @@ function HrEngineeringSalesPanel({
             <h2>Workflow records</h2>
           </div>
         </div>
-        <WorkflowList workflows={workflows} />
+        <WorkflowList workflows={workflows} createHref={createHref} />
       </section>
       <ProcessActivityPanel
+        createHref={createHref}
         label={`${domainLabel} agent findings are not yet wired to a live runtime.`}
       />
     </>
@@ -346,17 +368,23 @@ export function DashboardTabs({ workflows }: { workflows: Workflow[] }) {
             tabIndex={0}
           >
             {isActive && tab.key === "hr" && (
-              <HrEngineeringSalesPanel domainLabel="HR" workflows={hrWorkflows} />
+              <HrEngineeringSalesPanel
+                domainLabel="HR"
+                templateSlug="hr-candidate-screening"
+                workflows={hrWorkflows}
+              />
             )}
             {isActive && tab.key === "engineering" && (
               <HrEngineeringSalesPanel
                 domainLabel="Engineering"
+                templateSlug="engineering-change-review"
                 workflows={engineeringWorkflows}
               />
             )}
             {isActive && tab.key === "sales" && (
               <HrEngineeringSalesPanel
                 domainLabel="Sales"
+                templateSlug="sales-lead-qualification"
                 workflows={salesWorkflows}
               />
             )}

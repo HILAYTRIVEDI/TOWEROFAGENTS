@@ -317,6 +317,7 @@ h3 {
 
 .empty-state {
   display: grid;
+  gap: 18px;
   min-height: 310px;
   place-items: center;
   align-content: center;
@@ -326,6 +327,7 @@ h3 {
 
 .empty-state p {
   max-width: 540px;
+  margin-bottom: 0;
   color: var(--muted);
   line-height: 1.65;
 }
@@ -335,11 +337,17 @@ h3 {
   width: 48px;
   height: 48px;
   place-items: center;
-  margin-bottom: 18px;
   color: var(--green);
   background: #e8efdc;
   border-radius: 50%;
   font-size: 1.8rem;
+  text-decoration: none;
+}
+
+.empty-icon-link:hover,
+.empty-icon-link:focus-visible {
+  color: white;
+  background: var(--green-dark);
 }
 
 .workflow-form {

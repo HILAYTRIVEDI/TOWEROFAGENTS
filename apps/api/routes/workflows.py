@@ -62,7 +62,10 @@ def get_workflow_repository(
 
 def get_retriever(settings: Settings = Depends(get_settings)) -> Retriever:
     try:
-        return Retriever(SupabaseChunkSearchClient(create_supabase_client(settings)))
+        return Retriever(
+            SupabaseChunkSearchClient(create_supabase_client(settings)),
+            dimensions=settings.embedding_dimensions,
+        )
     except RuntimeError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

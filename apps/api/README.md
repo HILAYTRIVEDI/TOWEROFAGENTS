@@ -212,11 +212,12 @@ See `.env.example` at the repository root for the full list. Key variables:
 | `SUPABASE_URL`            | Supabase project URL                     | —            |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only)    | —            |
 | `LLM_PROVIDER`            | LLM routing: `mock`, `aiml`, or `auto`  | `aiml`       |
-| `EMBEDDING_PROVIDER`      | Embedding provider: `mock` or `aiml`     | `mock`       |
+| `EMBEDDING_PROVIDER`      | Embedding provider: `mock`, `aiml`, or `openai` | `mock`       |
 | `EMBEDDING_DIMENSIONS`    | Vector dimensions (must match SQL)       | `1536`       |
 | `BAND_MODE`               | Band integration: `mock` or `sdk`        | `mock`       |
 | `BAND_AGENT_ID`           | Primary coordinator agent UUID           | —            |
 | `AIML_API_KEY`            | AIML API key for LLM/embedding calls     | —            |
+| `OPENAI_API_KEY`          | OpenAI API key for OpenAI embeddings     | —            |
 
 ## Testing
 

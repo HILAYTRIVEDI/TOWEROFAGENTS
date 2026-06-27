@@ -8,7 +8,7 @@ Supabase migrations define:
 - Knowledge: `documents`, `document_chunks`
 - Audit/output: `agent_findings`, `band_messages`, `workflow_reports`, `approvals`, `agent_metrics`
 
-All business records carry organization or workflow scope. `document_chunks.embedding` uses `vector(1536)`. `EMBEDDING_DIMENSIONS` and the selected embedding model must remain at 1536 unless migration `001_init.sql` and vector search function `002_vector_search.sql` are changed together.
+All business records carry organization or workflow scope. `document_chunks.embedding` uses `vector(1536)`. `EMBEDDING_DIMENSIONS` and the selected embedding model must remain at 1536 unless migration `001_init.sql`, vector search functions `002_vector_search.sql` / `004_organization_documents.sql`, and any live Supabase schema are changed together.
 
 The bootstrap establishes tables, indexes, update triggers, basic row-level security, and `match_document_chunks`. Migration `003_documents_storage.sql` creates the private `workflow-documents` Storage bucket used by the document upload endpoint; uploads run server-side with the service role key (which bypasses storage RLS), so no public storage policy is granted. `DOCUMENTS_BUCKET` can override the bucket name at runtime.
 

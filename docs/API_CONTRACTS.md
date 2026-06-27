@@ -66,8 +66,9 @@ the row and surfaced via the document read endpoints, never raised to the upload
 Workflow-scoped chunks carry the owning `workflow_id`; organization-shared chunks are stored with
 `workflow_id: null` so `match_document_chunks` returns them across every workflow in the
 organization. Embedding vectors are exactly `EMBEDDING_DIMENSIONS` long, matching the `vector(N)`
-column. When the embedding provider is unconfigured, ingestion fails loudly and the document is
-marked `failed` rather than silently indexed.
+column; provider responses with any other size fail before chunks are written. When the embedding
+provider is unconfigured, ingestion fails loudly and the document is marked `failed` rather than
+silently indexed.
 
 `POST /workflows/{workflow_id}/index` re-indexes every document attached to the workflow (idempotent:
 each document's existing chunks are replaced). It returns `202 Accepted` with

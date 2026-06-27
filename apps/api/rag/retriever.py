@@ -7,8 +7,9 @@ class ChunkSearchClient(Protocol):
 
 
 class Retriever:
-    def __init__(self, client: ChunkSearchClient) -> None:
+    def __init__(self, client: ChunkSearchClient, *, dimensions: int | None = None) -> None:
         self._client = client
+        self._dimensions = dimensions
 
     async def search(
         self,
@@ -21,6 +22,10 @@ class Retriever:
     ) -> list[dict[str, Any]]:
         if not org_id or not workflow_id:
             raise ValueError("org_id and workflow_id are required")
+        if self._dimensions is not None and len(query_embedding) != self._dimensions:
+            raise RuntimeError(
+                f"Query embedding has {len(query_embedding)} dimensions; expected {self._dimensions}"
+            )
         return await self._client.rpc(
             "match_document_chunks",
             {

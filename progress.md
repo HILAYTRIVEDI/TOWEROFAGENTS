@@ -1,6 +1,6 @@
 # ATower Of Agents - Implementation Status
 
-_Last assessed: 2026-06-27. Workflow discussion/audit trail and decision reasoning are now surfaced inline on `/workflows/{id}`. `.venv/bin/python -m pytest apps/api/tests` passed with 103 tests; `npm run typecheck` and `npm run build` in `apps/web` passed. The web build still reports an existing `app/page.tsx` hook dependency warning. Backend Band workflow-audit path is wired and covered by focused tests. LLM routing and the Band coordinator use AIML API only; Featherless is disabled for this deployment._
+_Last assessed: 2026-06-27. Real embedding provider selection now supports AIML and OpenAI behind `rag/embeddings.py`, with dimension checks before chunk writes and vector search. `.venv/bin/python -m pytest apps/api/tests -q` passed with 127 tests. Current local config still has `EMBEDDING_PROVIDER=mock` and no `EMBEDDING_MODEL`, so live real-provider verification remains pending until embedding settings are enabled. The web build previously passed and still reports an existing `app/page.tsx` hook dependency warning. LLM routing and the Band coordinator use AIML API only; Featherless is disabled for this deployment._
 
 ## Current Plan: Workflow Discussion, Audit, And Decision Trail
 
@@ -25,8 +25,8 @@ Source plan: `/Users/hilaytrivedi/.codex/attachments/1858fe33-a67c-42ef-8526-b36
 - [x] Add human approval API: `POST /workflows/{id}/review` accepts `{decision: approve|reject, note?}`, transitions a persisted `review_status` (`pending_review` -> `approved`|`rejected`), and stores reviewer note + `reviewed_at`. New migration `supabase/migrations/005_report_review_status.sql` adds the columns (apply to live Supabase manually — does not auto-apply). `WorkflowReportRead` now surfaces `review_status`/`reviewer_note`/`reviewed_at`; new `ReviewStatus` enum + `WorkflowReviewRequest`/`WorkflowReviewRead` models. Invalid transitions rejected: 404 (no report), 400 (report doesn't require review), 409 (already resolved). `requires_human_review` stays the trigger, `review_status` is the single-source-of-truth resolution. Verified: `.venv/bin/python -m pytest apps/api` -> 122 passed (5 new review tests).
 - [x] Build approval UI (Part F2): new `ReviewStatus` union + `WorkflowReviewRead` type and three nullable review fields on `WorkflowReport` (`apps/web/lib/types.ts`); `submitReview(workflowId, decision, note?)` helper (`apps/web/lib/api.ts`); new `ReportReviewPanel` client island (`apps/web/components/report-review-panel.tsx`) with Approve/Reject + optional note, rendered on `reports/[id]` and hiding actions once resolved; `review_status` badge on `workflows/[id]`; badge styles in `globals.css`. 4xx handled (404/400 surface backend `detail`; 409 prompts refresh). Verified: `npm run typecheck` pass, `npm run build` pass (only the pre-existing `app/page.tsx` hook warning).
 - [x] Automatic Band room creation (Part C): `BandSDKClient` (`apps/api/band/client.py`) now implements `create_room()` (`POST /api/v1/agent/chats`) and `post_message()` against Band's Agent REST API via injectable httpx `http_post`, mirroring `MockBandClient` and the `run_audit.py` call pattern (async httpx, `X-API-Key`, `data.id` parsing). `/band-session` now provisions a real room when `BAND_MODE=sdk` + creds present; returns HTTP 503 unconfigured (names both missing env vars) when sdk creds absent; HTTP 400 for unknown modes; mock branch unchanged. Docs updated (`docs/BAND_INTEGRATION.md`). Verified: `python -m pytest apps/api/tests -q` -> 122 passed. **Unverifiable without live keys:** real room creation HTTP call, and the `create_room` request body field name (Band returned 422 "Unexpected field: name" with live creds — flagged in a code comment at `client.py:98`; confirm the correct field against Band's live API once keys exist).
-- [ ] Real embeddings end-to-end (Part D): wire real embedding provider behind `rag/embeddings.py`, ensure index/retrieve dimensional parity, keep mock fallback.
-- [ ] Perform live mock baseline and real-provider verification after keys are configured.
+- [x] Real embeddings end-to-end (Part D): `rag/embeddings.py` now resolves `mock`, `aiml`, and `openai`; real providers use the OpenAI-compatible embeddings contract; `OPENAI_API_KEY` is wired into settings; provider responses and Retriever query vectors are checked against `EMBEDDING_DIMENSIONS` before Supabase writes/searches; mock fallback remains deterministic. Verified: `.venv/bin/python -m pytest apps/api/tests -q` -> 127 passed.
+- [ ] Perform live mock baseline and real-provider verification after keys are configured. Current local config check: `EMBEDDING_PROVIDER=mock`, no `EMBEDDING_MODEL`; AIML and Supabase credentials are present but real embeddings are not enabled.
 
 ## Implemented And Working
 
@@ -81,7 +81,7 @@ Source plan: `/Users/hilaytrivedi/.codex/attachments/1858fe33-a67c-42ef-8526-b36
 | Live mock/real demo | Run the new inline workflow page against a mock baseline and then real provider keys. |
 | Supabase migration | Apply `supabase/migrations/004_organization_documents.sql` to live Supabase if not already applied. |
 | Worktree dependencies | Create/install this worktree's `.venv` and `node_modules`; do not share mutable dependency folders between worktrees. |
-| Embeddings provider | Configure a real embedding provider with `EMBEDDING_PROVIDER=aiml` or `openai`, `EMBEDDING_MODEL`, and `EMBEDDING_DIMENSIONS=1536`. |
+| Embeddings provider | Enable real verification by setting `EMBEDDING_PROVIDER=aiml` with `AIML_API_KEY`, or `EMBEDDING_PROVIDER=openai` with `OPENAI_API_KEY`, plus a 1536-dimensional `EMBEDDING_MODEL`. |
 | Band room provisioning | Create real Band rooms and add relevant participants automatically. Current real demo path uses a pasted Band room ID or `BAND_DEFAULT_ROOM_ID`. |
 | Auth/RLS | Replace temporary env org scope with Supabase auth-derived org scope and harden production RLS policies. |
 
@@ -93,7 +93,8 @@ approval engine.
 
 ## Bottom Line
 
-The HR Candidate Screening workflow runs end to end through the web UI, and this
-change is wiring the previously hidden Band audit messages and full per-agent
-reasoning into the workflow detail page instead of requiring a separate Band room
-or report page to understand what happened.
+The HR Candidate Screening workflow runs end to end through the web UI. Workflow
+discussion, decision reasoning, human review, Band room provisioning, LangGraph
+orchestration, artifact history/removal, and real embedding-provider plumbing are
+implemented. Remaining validation is live-provider demo work gated by external
+settings and live service access.

@@ -36,6 +36,15 @@ class UnconfiguredEmbeddingProvider:
         raise RuntimeError("Embedding provider is not configured")
 
 
+def _validate_dimensions(vectors: list[list[float]], expected: int) -> list[list[float]]:
+    for index, vector in enumerate(vectors):
+        if len(vector) != expected:
+            raise RuntimeError(
+                f"Embedding vector {index} has {len(vector)} dimensions; expected {expected}"
+            )
+    return vectors
+
+
 class MockEmbeddingProvider:
     """Deterministic, offline embeddings for tests and unconfigured demos.
 
@@ -56,10 +65,10 @@ class MockEmbeddingProvider:
         return [value / norm for value in raw]
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [self._embed(text) for text in texts]
+        return _validate_dimensions([self._embed(text) for text in texts], self.dimensions)
 
     async def embed_query(self, text: str) -> list[float]:
-        return self._embed(text)
+        return _validate_dimensions([self._embed(text)], self.dimensions)[0]
 
 
 class OpenAICompatibleEmbeddingProvider:
@@ -85,11 +94,13 @@ class OpenAICompatibleEmbeddingProvider:
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         response = await self._client.embeddings.create(model=self._model, input=texts)
-        return [item.embedding for item in response.data]
+        return _validate_dimensions(
+            [item.embedding for item in response.data], self.dimensions
+        )
 
     async def embed_query(self, text: str) -> list[float]:
         response = await self._client.embeddings.create(model=self._model, input=[text])
-        return response.data[0].embedding
+        return _validate_dimensions([response.data[0].embedding], self.dimensions)[0]
 
 
 def get_embedding_provider(settings) -> EmbeddingProvider:

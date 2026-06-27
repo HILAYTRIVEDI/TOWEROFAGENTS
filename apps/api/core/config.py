@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     aiml_api_key: str | None = None
     aiml_default_model: str | None = None
+    openai_api_key: str | None = None
     llm_provider: str = "mock"
 
     embedding_provider: str = "mock"

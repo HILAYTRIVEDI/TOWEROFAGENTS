@@ -26,8 +26,11 @@ class ResumeJDMatcherAgent(BaseAgent):
             chunk_id = str(chunk.get("id", ""))
             if chunk_id:
                 evidence_ids.append(chunk_id)
+            metadata = chunk.get("metadata") if isinstance(chunk.get("metadata"), dict) else {}
+            source = str(metadata.get("doc_type", "unknown"))
+            filename = str(metadata.get("filename", "unknown"))
             snippet = str(chunk.get("content", ""))[:200]
-            chunk_lines.append(f"[chunk:{chunk_id}] {snippet}")
+            chunk_lines.append(f"[chunk:{chunk_id} source={source} file={filename}] {snippet}")
 
         artifact_names = ", ".join(
             f"{a.get('filename','?')} ({a.get('doc_type','?')})"

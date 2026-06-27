@@ -58,6 +58,7 @@ def _document(*, workflow_id):
         "workflow_id": workflow_id,
         "storage_path": "org/shared/abc-policy.txt",
         "filename": "policy.txt",
+        "doc_type": "policy",
     }
 
 
@@ -75,6 +76,8 @@ def test_index_document_creates_chunks_for_workflow_document() -> None:
     assert len(store.chunks) == result.chunk_count
     # Workflow-scoped chunks carry the owning workflow id.
     assert all(c["workflow_id"] == str(document["workflow_id"]) for c in store.chunks)
+    assert all(c["metadata"]["doc_type"] == "policy" for c in store.chunks)
+    assert all(c["metadata"]["filename"] == "policy.txt" for c in store.chunks)
     assert all(len(c["embedding"]) == 8 for c in store.chunks)
     assert store.statuses == ["parsing", "indexed"]
 

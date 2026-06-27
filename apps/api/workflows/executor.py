@@ -173,18 +173,23 @@ class WorkflowExecutor:
             fit_score = None
 
         # Build summary
-        summary_parts = [
+        run_summary = (
             f"Specialist agent run: {len(ran_slugs)} agent(s) produced "
-            f"{len(findings)} finding(s); {len(skipped_slugs)} agent(s) skipped "
-            f"(not yet implemented)."
-        ]
+            f"{len(findings)} finding(s)."
+        )
+        if skipped_slugs:
+            run_summary += (
+                f" {len(skipped_slugs)} agent(s) skipped because they are not yet "
+                f"implemented: {', '.join(skipped_slugs)}."
+            )
+        summary_parts = [run_summary]
         if any_mock:
             summary_parts.append(
                 "The LLM provider is set to 'mock' — no external model was called. "
                 "All findings are placeholders and require human review before use."
             )
         if final_finding and not any_mock:
-            summary_parts.append(final_finding.content[:300])
+            summary_parts.append(final_finding.content.strip())
         elif not final_finding:
             summary_parts.append(
                 "The final-decision agent did not produce a finding; "

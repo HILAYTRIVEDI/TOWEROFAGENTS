@@ -69,14 +69,16 @@ export function BandSessionForm({
           {submitting === "assign" ? "Saving..." : "Use room"}
         </button>
       </form>
-      <button
-        className="button"
-        disabled={submitting !== null}
-        onClick={createMockSession}
-        type="button"
-      >
-        {submitting === "mock" ? "Creating..." : "Create mock session"}
-      </button>
+      {!currentRoomId ? (
+        <button
+          className="button"
+          disabled={submitting !== null}
+          onClick={createMockSession}
+          type="button"
+        >
+          {submitting === "mock" ? "Creating..." : "Create local test session"}
+        </button>
+      ) : null}
     </section>
   );
 }

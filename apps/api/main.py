@@ -1,5 +1,9 @@
-from fastapi import FastAPI
+import logging
+
+import httpx
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from core.config import get_settings
 from core.logging import configure_logging
@@ -7,6 +11,7 @@ from routes import agents, documents, health, reports, workflows
 
 settings = get_settings()
 configure_logging(settings.log_level)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="ATower Of Agents API",
@@ -21,6 +26,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(httpx.HTTPError)
+async def external_http_error_handler(request: Request, exc: httpx.HTTPError) -> JSONResponse:
+    logger.warning(
+        "External HTTP dependency failed for %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+    )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "External service unavailable. Check configured service URLs "
+                "and network/DNS connectivity."
+            )
+        },
+    )
+
 
 app.include_router(health.router)
 app.include_router(workflows.router)

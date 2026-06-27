@@ -71,9 +71,39 @@ class FakeDocumentRepository:
             }
         ]
 
+    async def list_workflow_documents(self, workflow_id: UUID) -> list[dict]:
+        if self.known_workflow is not None and workflow_id != self.known_workflow:
+            return []
+        return [
+            {
+                "id": uuid4(),
+                "org_id": self.known_org or uuid4(),
+                "workflow_id": workflow_id,
+                "doc_type": "resume",
+                "filename": "resume.pdf",
+                "mime_type": "application/pdf",
+                "status": "indexed",
+                "created_at": datetime.now(UTC),
+            },
+            {
+                "id": uuid4(),
+                "org_id": self.known_org or uuid4(),
+                "workflow_id": workflow_id,
+                "doc_type": "jd",
+                "filename": "job-description.pdf",
+                "mime_type": "application/pdf",
+                "status": "uploaded",
+                "created_at": datetime.now(UTC),
+            },
+        ]
+
     async def delete_organization_document(self, org_id: UUID, document_id: UUID) -> bool:
         self.calls.append({"org_id": org_id, "document_id": document_id})
         return org_id == self.known_org and document_id == self.document_id
+
+    async def delete_workflow_document(self, workflow_id: UUID, document_id: UUID) -> bool:
+        self.calls.append({"workflow_id": workflow_id, "document_id": document_id})
+        return workflow_id == self.known_workflow and document_id == self.document_id
 
 
 def _upload(workflow_id: UUID, repository, **form):
@@ -100,10 +130,26 @@ def _list_org(org_id: UUID, repository):
         app.dependency_overrides.clear()
 
 
+def _list_workflow(workflow_id: UUID, repository):
+    app.dependency_overrides[get_document_repository] = lambda: repository
+    try:
+        return TestClient(app).get(f"/workflows/{workflow_id}/documents")
+    finally:
+        app.dependency_overrides.clear()
+
+
 def _delete_org(org_id: UUID, document_id: UUID, repository):
     app.dependency_overrides[get_document_repository] = lambda: repository
     try:
         return TestClient(app).delete(f"/knowledge/{org_id}/documents/{document_id}")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _delete_workflow(workflow_id: UUID, document_id: UUID, repository):
+    app.dependency_overrides[get_document_repository] = lambda: repository
+    try:
+        return TestClient(app).delete(f"/workflows/{workflow_id}/documents/{document_id}")
     finally:
         app.dependency_overrides.clear()
 
@@ -150,6 +196,18 @@ def test_list_organization_documents_returns_shared_files() -> None:
     assert body[0]["workflow_id"] is None
 
 
+def test_list_workflow_documents_returns_workflow_history() -> None:
+    workflow_id = uuid4()
+    response = _list_workflow(
+        workflow_id,
+        FakeDocumentRepository(known_workflow=workflow_id),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert [row["doc_type"] for row in body] == ["resume", "jd"]
+    assert all(row["workflow_id"] == str(workflow_id) for row in body)
+
+
 def test_delete_organization_document_returns_no_content() -> None:
     org_id = uuid4()
     repository = FakeDocumentRepository(known_org=org_id)
@@ -159,6 +217,22 @@ def test_delete_organization_document_returns_no_content() -> None:
         "org_id": org_id,
         "document_id": repository.document_id,
     }
+
+
+def test_delete_workflow_document_returns_no_content() -> None:
+    workflow_id = uuid4()
+    repository = FakeDocumentRepository(known_workflow=workflow_id)
+    response = _delete_workflow(workflow_id, repository.document_id, repository)
+    assert response.status_code == 204
+    assert repository.calls[0] == {
+        "workflow_id": workflow_id,
+        "document_id": repository.document_id,
+    }
+
+
+def test_delete_unknown_workflow_document_returns_404() -> None:
+    response = _delete_workflow(uuid4(), uuid4(), FakeDocumentRepository(known_workflow=uuid4()))
+    assert response.status_code == 404
 
 
 def test_delete_unknown_organization_document_returns_404() -> None:
@@ -469,6 +543,33 @@ def test_repository_lists_org_files() -> None:
     assert rows == store["documents"]
 
 
+def test_repository_lists_workflow_files_with_ui_metadata() -> None:
+    workflow_id = uuid4()
+    store: dict = {
+        "org_id": str(uuid4()),
+        "documents": [
+            {
+                "id": str(uuid4()),
+                "org_id": str(uuid4()),
+                "workflow_id": str(workflow_id),
+                "doc_type": "resume",
+                "filename": "resume.pdf",
+                "storage_path": f"{workflow_id}/resume.pdf",
+                "mime_type": "application/pdf",
+                "status": "indexed",
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        ],
+    }
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+
+    rows = asyncio.run(repository.list_workflow_documents(workflow_id))
+
+    assert rows == store["documents"]
+    assert rows[0]["doc_type"] == "resume"
+    assert rows[0]["mime_type"] == "application/pdf"
+
+
 def test_repository_deletes_org_file_and_storage_object() -> None:
     org_id = uuid4()
     document_id = uuid4()
@@ -517,6 +618,54 @@ def test_repository_deletes_workflow_file_when_it_belongs_to_org() -> None:
     assert deleted is True
     assert store["removed"] == [storage_path]
     assert store["documents"] == []
+
+
+def test_repository_deletes_workflow_file_when_it_belongs_to_workflow() -> None:
+    document_id = uuid4()
+    workflow_id = uuid4()
+    storage_path = f"{workflow_id}/file.pdf"
+    store: dict = {
+        "org_id": str(uuid4()),
+        "documents": [
+            {
+                "id": str(document_id),
+                "org_id": str(uuid4()),
+                "workflow_id": str(workflow_id),
+                "storage_path": storage_path,
+            }
+        ],
+    }
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+
+    deleted = asyncio.run(repository.delete_workflow_document(workflow_id, document_id))
+
+    assert deleted is True
+    assert store["removed"] == [storage_path]
+    assert store["documents"] == []
+
+
+def test_repository_does_not_delete_workflow_file_from_another_workflow() -> None:
+    document_id = uuid4()
+    workflow_id = uuid4()
+    other_workflow_id = uuid4()
+    store: dict = {
+        "org_id": str(uuid4()),
+        "documents": [
+            {
+                "id": str(document_id),
+                "org_id": str(uuid4()),
+                "workflow_id": str(other_workflow_id),
+                "storage_path": f"{other_workflow_id}/file.pdf",
+            }
+        ],
+    }
+    repository = SupabaseDocumentRepository(_FakeClient(store), "workflow-documents")
+
+    deleted = asyncio.run(repository.delete_workflow_document(workflow_id, document_id))
+
+    assert deleted is False
+    assert "removed" not in store
+    assert len(store["documents"]) == 1
 
 
 def test_repository_replace_chunks_scopes_workflow_chunks() -> None:

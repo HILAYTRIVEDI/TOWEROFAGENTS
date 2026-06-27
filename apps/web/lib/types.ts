@@ -77,3 +77,34 @@ export interface WorkflowReport {
     [key: string]: unknown;
   };
 }
+
+export interface BandMessageRead {
+  id: string;
+  workflow_id: string;
+  band_message_id?: string | null;
+  band_room_id: string;
+  sender_type: string;
+  sender_ref?: string | null;
+  content: string;
+  message_type: string;
+  raw_payload: {
+    mode?: unknown;
+    [key: string]: unknown;
+  };
+  created_at: string;
+}
+
+export interface AgentFindingRead {
+  id: string;
+  workflow_id: string;
+  agent_slug: string;
+  finding_type: string;
+  severity: string;
+  title: string;
+  content: string;
+  evidence_chunk_ids: string[];
+  confidence: number;
+  requires_human_review: boolean;
+  raw_output?: Record<string, unknown>;
+  created_at: string;
+}

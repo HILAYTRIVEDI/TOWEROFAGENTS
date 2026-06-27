@@ -48,6 +48,12 @@ class WorkflowRepository(Protocol):
 
     async def save_band_message(self, message: dict[str, Any]) -> dict[str, Any]: ...
 
+    async def get_band_messages(self, workflow_id: UUID) -> list[dict[str, Any]]: ...
+
+    async def save_agent_finding(self, finding: dict[str, Any]) -> dict[str, Any]: ...
+
+    async def get_agent_findings(self, workflow_id: UUID) -> list[dict[str, Any]]: ...
+
 
 class SupabaseWorkflowRepository:
     _select = (
@@ -95,6 +101,15 @@ class SupabaseWorkflowRepository:
 
     async def save_band_message(self, message: dict[str, Any]) -> dict[str, Any]:
         return await asyncio.to_thread(self._save_band_message, message)
+
+    async def get_band_messages(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self._get_band_messages, workflow_id)
+
+    async def save_agent_finding(self, finding: dict[str, Any]) -> dict[str, Any]:
+        return await asyncio.to_thread(self._save_agent_finding, finding)
+
+    async def get_agent_findings(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self._get_agent_findings, workflow_id)
 
     def _create_workflow(self, payload: WorkflowCreate) -> dict[str, Any]:
         template_id = None
@@ -240,8 +255,53 @@ class SupabaseWorkflowRepository:
             raise RuntimeError("Supabase band_messages insert returned no data")
         return response.data[0]
 
+    def _get_band_messages(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        response = (
+            self._client.table("band_messages")
+            .select("*")
+            .eq("workflow_id", str(workflow_id))
+            .order("created_at")
+            .execute()
+        )
+        return response.data or []
+
+    def _save_agent_finding(self, finding: dict[str, Any]) -> dict[str, Any]:
+        row = {
+            **finding,
+            "severity": _db_severity(finding["severity"]),
+            "evidence_chunk_ids": _uuid_strings(finding.get("evidence_chunk_ids", [])),
+        }
+        response = self._client.table("agent_findings").insert(row).execute()
+        if not response.data:
+            raise RuntimeError("Supabase agent_findings insert returned no data")
+        return response.data[0]
+
+    def _get_agent_findings(self, workflow_id: UUID) -> list[dict[str, Any]]:
+        response = (
+            self._client.table("agent_findings")
+            .select("*")
+            .eq("workflow_id", str(workflow_id))
+            .order("created_at")
+            .execute()
+        )
+        return response.data or []
+
     @staticmethod
     def _normalize_workflow(row: dict[str, Any]) -> dict[str, Any]:
         template = row.pop("workflow_templates", None)
         row["template_slug"] = template.get("slug") if template else None
         return row
+
+
+def _db_severity(severity: str) -> str:
+    return {"warning": "medium", "error": "high"}.get(severity, severity)
+
+
+def _uuid_strings(values: list[Any]) -> list[str]:
+    ids: list[str] = []
+    for value in values:
+        try:
+            ids.append(str(UUID(str(value))))
+        except (TypeError, ValueError):
+            continue
+    return ids

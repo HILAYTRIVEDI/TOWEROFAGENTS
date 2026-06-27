@@ -5,7 +5,33 @@ import { BandSessionForm } from "@/components/band-session-form";
 import { DocumentUpload } from "@/components/document-upload";
 import { PageHeader } from "@/components/page-header";
 import { RunWorkflow } from "@/components/run-workflow";
-import { ApiError, getWorkflow, getWorkflowReport } from "@/lib/api";
+import {
+  ApiError,
+  getWorkflow,
+  getWorkflowFindings,
+  getWorkflowMessages,
+  getWorkflowReport,
+  listWorkflowDocuments,
+} from "@/lib/api";
+import type { AgentFindingRead, BandMessageRead, DocumentRead } from "@/lib/types";
+
+function messageMode(message: BandMessageRead): string {
+  const mode = message.raw_payload.mode;
+  return typeof mode === "string" && mode.length > 0 ? mode : "unknown";
+}
+
+function isPlaceholderFinding(finding: AgentFindingRead): boolean {
+  return finding.confidence === 0 || finding.content.startsWith("[PLACEHOLDER");
+}
+
+function cleanWorkflowText(text: string): string {
+  return text
+    .replaceAll("**", "")
+    .replaceAll("##", "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+(RECOMMENDATION|SUMMARY|EVIDENCE|RISKS):\s*/gi, "\n$1: ")
+    .trim();
+}
 
 export default async function WorkflowDetailPage({
   params,
@@ -13,18 +39,21 @@ export default async function WorkflowDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const workflow = await getWorkflow(id).catch((error) => {
-    if (error instanceof ApiError && error.status === 404) {
-      notFound();
-    }
-    throw error;
-  });
-
-  // Attempt to fetch an existing report so we can link to it; 404 is fine.
-  const existingReport = await getWorkflowReport(id).catch((error) => {
-    if (error instanceof ApiError && error.status === 404) return null;
-    return null;
-  });
+  const [workflow, existingReport, messages, findings, documents] = await Promise.all([
+    getWorkflow(id).catch((error) => {
+      if (error instanceof ApiError && error.status === 404) {
+        notFound();
+      }
+      throw error;
+    }),
+    getWorkflowReport(id).catch(() => null),
+    getWorkflowMessages(id).catch(() => [] as BandMessageRead[]),
+    getWorkflowFindings(id).catch(() => [] as AgentFindingRead[]),
+    listWorkflowDocuments(id).catch(() => [] as DocumentRead[]),
+  ]);
+  const hasMockBandAudit = messages.some((message) => messageMode(message) === "mock");
+  const hasPlaceholderDecision =
+    existingReport?.report_payload?.any_mock === true || findings.some(isPlaceholderFinding);
 
   return (
     <>
@@ -52,7 +81,11 @@ export default async function WorkflowDetailPage({
           </dl>
         </article>
         <article className="detail-card">
-          <DocumentUpload scope="workflow" workflowId={workflow.id} />
+          <DocumentUpload
+            initialDocuments={documents}
+            scope="workflow"
+            workflowId={workflow.id}
+          />
         </article>
       </section>
       <article className="detail-card">
@@ -77,6 +110,161 @@ export default async function WorkflowDetailPage({
             .
           </p>
         ) : null}
+      </article>
+      <article className="detail-card">
+        <p className="eyebrow">Agent discussion & audit trail</p>
+        {hasMockBandAudit ? (
+          <p className="notice" style={{ marginBottom: "1rem" }}>
+            Some Band audit posts used local test mode because that sender is
+            missing live Band credentials. Real decision data is shown
+            separately below.
+          </p>
+        ) : null}
+        {messages.length > 0 ? (
+          <ul className="workflow-list">
+            {messages.map((message) => {
+              const mode = messageMode(message);
+              return (
+                <li className="workflow-row" key={message.id}>
+                  <div className="workflow-row-main">
+                    <p className="workflow-row-title">
+                      {message.sender_ref ?? message.sender_type}
+                    </p>
+                    <p className="workflow-row-content">
+                      {cleanWorkflowText(message.content)}
+                    </p>
+                    <p className="workflow-row-meta">
+                      {new Date(message.created_at).toLocaleString()} · Room{" "}
+                      {message.band_room_id}
+                    </p>
+                  </div>
+                  <span className={`status-badge status-${mode}`}>{mode}</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="notice">
+            No persisted Band discussion messages yet. Run the workflow with a
+            Band room or default room configured to capture the audit trail.
+          </p>
+        )}
+      </article>
+      <article className="detail-card">
+        <p className="eyebrow">Decision & reasoning</p>
+        {hasPlaceholderDecision ? (
+          <p className="notice error" role="alert">
+            Placeholder — model providers not configured. Zero-confidence
+            findings are displayed for audit only, not as real decisions.
+          </p>
+        ) : null}
+        {existingReport ? (
+          <>
+            <p>
+              <span className={`status-badge status-${existingReport.recommendation}`}>
+                {existingReport.recommendation.replaceAll("_", " ")}
+              </span>
+            </p>
+            <p className="workflow-row-content" style={{ marginTop: "0.75rem" }}>
+              {cleanWorkflowText(existingReport.summary)}
+            </p>
+            <section className="detail-grid" style={{ marginTop: "1rem" }}>
+              <div>
+                <p className="eyebrow">Strengths</p>
+                {existingReport.strengths.length > 0 ? (
+                  <ul className="workflow-list">
+                    {existingReport.strengths.map((strength, index) => (
+                      <li className="workflow-row" key={index}>
+                        {strength}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="notice">None reported.</p>
+                )}
+              </div>
+              <div>
+                <p className="eyebrow">Gaps</p>
+                {existingReport.gaps.length > 0 ? (
+                  <ul className="workflow-list">
+                    {existingReport.gaps.map((gap, index) => (
+                      <li className="workflow-row" key={index}>
+                        {gap}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="notice">None reported.</p>
+                )}
+              </div>
+            </section>
+            {existingReport.policy_note ? (
+              <section style={{ marginTop: "1rem" }}>
+                <p className="eyebrow">Policy note</p>
+                <p>{existingReport.policy_note}</p>
+              </section>
+            ) : null}
+            <section style={{ marginTop: "1rem" }}>
+              <p className="eyebrow">Interview questions</p>
+              {existingReport.interview_questions.length > 0 ? (
+                <ol style={{ paddingLeft: "1.25rem" }}>
+                  {existingReport.interview_questions.map((question, index) => (
+                    <li key={index} style={{ marginBottom: "0.5rem" }}>
+                      {question}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="notice">None reported.</p>
+              )}
+            </section>
+          </>
+        ) : (
+          <p className="notice">
+            No persisted decision packet yet. Run the workflow to capture the
+            recommendation and synthesis.
+          </p>
+        )}
+        <section style={{ marginTop: "1rem" }}>
+          <p className="eyebrow">Per-agent reasoning</p>
+          {findings.length > 0 ? (
+            <ul className="workflow-list">
+              {findings.map((finding) => {
+                const placeholder = isPlaceholderFinding(finding);
+                return (
+                  <li className="workflow-row" key={finding.id}>
+                    <div>
+                      <p className="workflow-row-title">{finding.agent_slug}</p>
+                      <p>
+                        <strong>{finding.title}</strong>
+                      </p>
+                      <p className="workflow-row-content">
+                        {cleanWorkflowText(finding.content)}
+                      </p>
+                      <p className="workflow-row-meta">
+                        {finding.finding_type} · Confidence{" "}
+                        {Math.round(finding.confidence * 100)}% ·{" "}
+                        {new Date(finding.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <span
+                      className={`status-badge status-${
+                        placeholder ? "mock" : finding.severity
+                      }`}
+                    >
+                      {placeholder ? "mock" : finding.severity}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="notice">
+              No persisted agent findings yet. Older runs may need to be rerun
+              so full reasoning can be stored.
+            </p>
+          )}
+        </section>
       </article>
     </>
   );

@@ -122,6 +122,34 @@ class WorkflowReportRead(BaseModel):
     report_payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class BandMessageRead(BaseModel):
+    id: UUID
+    workflow_id: UUID
+    band_message_id: str | None = None
+    band_room_id: str
+    sender_type: str
+    sender_ref: str | None = None
+    content: str
+    message_type: str
+    raw_payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class AgentFindingRead(BaseModel):
+    id: UUID
+    workflow_id: UUID
+    agent_slug: str
+    finding_type: str
+    severity: str
+    title: str
+    content: str
+    evidence_chunk_ids: list[UUID] = Field(default_factory=list)
+    confidence: float
+    requires_human_review: bool
+    raw_output: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
 class HealthResponse(BaseModel):
     service: str
     status: str

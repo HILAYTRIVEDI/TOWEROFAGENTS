@@ -110,6 +110,33 @@ async def upload_document(
     return DocumentRead.model_validate(row)
 
 
+@router.get("/workflows/{workflow_id}/documents", response_model=list[DocumentRead])
+async def list_workflow_documents(
+    workflow_id: UUID,
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> list[DocumentRead]:
+    rows = await repository.list_workflow_documents(workflow_id)
+    return [DocumentRead.model_validate(row) for row in rows]
+
+
+@router.delete(
+    "/workflows/{workflow_id}/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_workflow_document(
+    workflow_id: UUID,
+    document_id: UUID,
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> None:
+    deleted = await repository.delete_workflow_document(workflow_id, document_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    logger.info("Deleted workflow document %s for workflow %s", document_id, workflow_id)
+
+
 @router.get("/knowledge/{org_id}/documents", response_model=list[DocumentRead])
 @router.get("/organizations/{org_id}/documents", response_model=list[DocumentRead])
 async def list_organization_documents(

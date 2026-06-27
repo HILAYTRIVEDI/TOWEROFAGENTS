@@ -767,15 +767,32 @@ h3 {
   list-style: none;
 }
 
+.document-history {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
 .workflow-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding: 18px 22px;
   background: rgba(255, 253, 247, 0.86);
   border: 1px solid var(--line);
   border-radius: 12px;
+}
+
+.workflow-row-main {
+  min-width: 0;
+}
+
+.workflow-row-content {
+  margin: 0.35rem 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 .workflow-row-trailing {
@@ -828,6 +845,27 @@ h3 {
 .status-badge.status-failed {
   color: var(--red);
   background: #f6e3e0;
+}
+
+.status-badge.status-mock,
+.status-badge.status-skipped,
+.status-badge.status-unknown {
+  color: var(--muted);
+  background: #ebe9df;
+}
+
+.status-badge.status-real,
+.status-badge.status-info,
+.status-badge.status-low {
+  color: var(--green-dark);
+  background: var(--lime);
+}
+
+.status-badge.status-medium,
+.status-badge.status-high,
+.status-badge.status-critical {
+  color: #7a5b00;
+  background: #f5ebcf;
 }
 
 .status-badge.status-completed {

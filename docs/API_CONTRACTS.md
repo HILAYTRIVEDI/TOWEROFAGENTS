@@ -13,12 +13,16 @@ Base URL: `http://localhost:8000`. JSON fields use snake case. Protected endpoin
 | `DELETE` | `/workflows/{workflow_id}` | Permanently remove a workflow |
 | `POST` | `/workflows/{workflow_id}/band-session` | Assign a Band discussion room/session |
 | `POST` | `/workflows/{workflow_id}/documents` | Upload an artifact file to private storage |
+| `GET` | `/workflows/{workflow_id}/documents` | List workflow artifact upload history |
+| `DELETE` | `/workflows/{workflow_id}/documents/{document_id}` | Remove a workflow artifact |
 | `GET` | `/knowledge/{org_id}/documents` | List organization-scoped documents |
 | `POST` | `/knowledge/{org_id}/documents` | Upload an organization-shared knowledge document to private storage |
 | `DELETE` | `/knowledge/{org_id}/documents/{document_id}` | Remove an organization-scoped document |
 | `POST` | `/workflows/{workflow_id}/index` | Parse, chunk, embed, and index artifacts |
 | `POST` | `/workflows/{workflow_id}/run` | Start orchestration |
 | `GET` | `/workflows/{workflow_id}/report` | Get report for workflow |
+| `GET` | `/workflows/{workflow_id}/messages` | Get persisted Band discussion/audit messages |
+| `GET` | `/workflows/{workflow_id}/findings` | Get persisted per-agent findings/reasoning |
 | `GET` | `/agents` | List registered agents |
 | `GET` | `/reports/{report_id}` | Get report by ID |
 
@@ -37,6 +41,11 @@ authenticated profile-derived scope will replace it when auth is implemented.
 field (`resume|jd|policy|crm|code|other`) and a `file` part. It uploads the file to the private
 Supabase Storage bucket configured by `DOCUMENTS_BUCKET` (default `workflow-documents`) and inserts a
 `documents` row scoped to the workflow's organization and workflow.
+`GET /workflows/{workflow_id}/documents` returns that workflow's artifact history ordered newest
+first; the workflow detail UI groups this list by document type tabs.
+`DELETE /workflows/{workflow_id}/documents/{document_id}` removes a workflow-scoped artifact and its
+private Storage object. It only deletes when both the workflow ID and document ID match, returns
+`204` on success, and returns `404` for missing or cross-workflow documents.
 
 `GET /knowledge/{org_id}/documents` returns all document rows scoped to the organization, including
 both shared Knowledge uploads and workflow-specific artifacts. `POST /knowledge/{org_id}/documents`
@@ -67,15 +76,21 @@ each document's existing chunks are replaced). It returns `202 Accepted` with
 `POST /workflows/{workflow_id}/run` executes the configured workflow specialists against workflow
 metadata, the current organization-scoped document inventory, and retrieved chunks from
 workflow-specific plus organization-shared Knowledge documents. It persists the packet to
-`workflow_reports` and moves the workflow to `awaiting_review`. When `workflow.band_room_id` or
-`BAND_DEFAULT_ROOM_ID` is set, it also posts and persists the Band audit discussion. Band failures
-are recorded in `report_payload.band_audit` and never fail the workflow run. It returns `202 Accepted` with
+`workflow_reports`, stores each full specialist finding in `agent_findings`, and moves the workflow
+to `awaiting_review`. When `workflow.band_room_id` or `BAND_DEFAULT_ROOM_ID` is set, it also posts
+and persists the Band audit discussion. Band failures are recorded in `report_payload.band_audit`;
+Band and finding-persistence failures never fail the workflow run. It returns `202 Accepted` with
 `{ "status": "awaiting_review", "workflow_id", "report_id" }`, or `404` for an unknown workflow.
 Reports are explicitly `human_review_required`; evidence chunk IDs come only from retrieved context
 and are not invented.
 
 `GET /workflows/{workflow_id}/report` returns the persisted report for a workflow. `GET
 /reports/{report_id}` returns the same report by ID. Both return `404` when the report is missing.
+`GET /workflows/{workflow_id}/messages` returns persisted Band audit messages ordered by
+`created_at`; `raw_payload.mode` is the canonical real/mock/failed/skipped indicator for display.
+`GET /workflows/{workflow_id}/findings` returns persisted specialist findings ordered by
+`created_at`; full reasoning is in `content`, and placeholder/mock findings retain
+`confidence: 0`.
 
 `DELETE /knowledge/{org_id}/documents/{document_id}` removes an organization-scoped document and its
 private Storage object. It returns `204` on success and `404` when the document is missing or outside
@@ -130,6 +145,42 @@ the organization scope.
         "modes": {}
       }
     }
+  }
+}
+```
+
+```json
+{
+  "band_message": {
+    "id": "uuid",
+    "workflow_id": "uuid",
+    "band_message_id": null,
+    "band_room_id": "band-room-id",
+    "sender_type": "agent",
+    "sender_ref": "workflow-router",
+    "content": "@rag-retriever ...",
+    "message_type": "message",
+    "raw_payload": { "mode": "mock" },
+    "created_at": "2026-06-14T00:00:00Z"
+  }
+}
+```
+
+```json
+{
+  "agent_finding": {
+    "id": "uuid",
+    "workflow_id": "uuid",
+    "agent_slug": "resume-jd-matcher",
+    "finding_type": "screening",
+    "severity": "medium",
+    "title": "Relevant experience needs review",
+    "content": "Full agent reasoning text.",
+    "evidence_chunk_ids": [],
+    "confidence": 0.72,
+    "requires_human_review": true,
+    "raw_output": {},
+    "created_at": "2026-06-14T00:00:00Z"
   }
 }
 ```

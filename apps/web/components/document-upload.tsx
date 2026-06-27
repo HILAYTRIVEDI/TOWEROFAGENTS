@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import {
   deleteOrganizationDocument,
+  deleteWorkflowDocument,
   uploadOrganizationDocument,
   uploadWorkflowDocument,
 } from "@/lib/api";
@@ -36,12 +37,23 @@ type DocumentUploadProps =
 
 export function DocumentUpload(props: DocumentUploadProps) {
   const [docType, setDocType] = useState<DocumentType>("resume");
+  const [activeType, setActiveType] = useState<DocumentType | "all">("all");
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState<DocumentRead[]>(
     props.initialDocuments ?? [],
   );
+  const visibleDocuments =
+    activeType === "all"
+      ? uploaded
+      : uploaded.filter((document) => document.doc_type === activeType);
+
+  function countFor(type: DocumentType | "all"): number {
+    return type === "all"
+      ? uploaded.length
+      : uploaded.filter((document) => document.doc_type === type).length;
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,13 +93,14 @@ export function DocumentUpload(props: DocumentUploadProps) {
   }
 
   async function handleRemove(document: DocumentRead) {
-    if (props.scope !== "organization") {
-      return;
-    }
     setError(null);
     setRemovingId(document.id);
     try {
-      await deleteOrganizationDocument(props.orgId, document.id);
+      if (props.scope === "workflow") {
+        await deleteWorkflowDocument(props.workflowId, document.id);
+      } else {
+        await deleteOrganizationDocument(props.orgId, document.id);
+      }
       setUploaded((current) => current.filter((item) => item.id !== document.id));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Remove failed.");
@@ -147,34 +160,53 @@ export function DocumentUpload(props: DocumentUploadProps) {
       </form>
 
       {uploaded.length > 0 ? (
-        <ul className="workflow-list">
-          {uploaded.map((document) => (
-            <li className="workflow-row" key={document.id}>
-              <div>
-                <p className="workflow-row-title">{document.filename}</p>
-                <p className="workflow-row-meta">
-                  {document.doc_type} · {document.mime_type ?? "unknown type"} ·{" "}
-                  {document.workflow_id ? "Workflow file" : "Shared knowledge"}
-                </p>
-              </div>
-              <div className="workflow-row-trailing">
-                <span className={`status-badge status-${document.status}`}>
-                  {document.status}
-                </span>
-                {props.scope === "organization" ? (
-                  <button
-                    className="button danger"
-                    disabled={removingId === document.id}
-                    onClick={() => void handleRemove(document)}
-                    type="button"
-                  >
-                    {removingId === document.id ? "Removing..." : "Remove"}
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <section className="document-history">
+          <div aria-label="Document history tabs" className="tab-list" role="tablist">
+            {[{ value: "all" as const, label: "All" }, ...DOC_TYPES].map((option) => (
+              <button
+                aria-selected={activeType === option.value}
+                className={`tab-trigger ${activeType === option.value ? "active" : ""}`}
+                key={option.value}
+                onClick={() => setActiveType(option.value)}
+                role="tab"
+                type="button"
+              >
+                {option.label} ({countFor(option.value)})
+              </button>
+            ))}
+          </div>
+          {visibleDocuments.length > 0 ? (
+            <ul className="workflow-list">
+              {visibleDocuments.map((document) => (
+                <li className="workflow-row" key={document.id}>
+                  <div className="workflow-row-main">
+                    <p className="workflow-row-title">{document.filename}</p>
+                    <p className="workflow-row-meta">
+                      {document.doc_type} · {document.mime_type ?? "unknown type"} ·{" "}
+                      {new Date(document.created_at).toLocaleString()} ·{" "}
+                      {document.workflow_id ? "Workflow file" : "Shared knowledge"}
+                    </p>
+                  </div>
+                  <div className="workflow-row-trailing">
+                    <span className={`status-badge status-${document.status}`}>
+                      {document.status}
+                    </span>
+                    <button
+                      className="button danger"
+                      disabled={removingId === document.id}
+                      onClick={() => void handleRemove(document)}
+                      type="button"
+                    >
+                      {removingId === document.id ? "Removing..." : "Remove"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="notice">No documents in this tab.</p>
+          )}
+        </section>
       ) : (
         <p className="notice">No documents uploaded yet.</p>
       )}

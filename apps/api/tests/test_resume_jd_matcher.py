@@ -77,6 +77,30 @@ def test_non_mock_provider_returns_finding() -> None:
     assert provider.calls[0][1]["role"] == "user"
 
 
+def test_prompt_labels_resume_and_jd_context_sources() -> None:
+    provider = _FakeProvider("aiml", "Candidate matches role evidence.")
+    agent = ResumeJDMatcherAgent(chat_provider=provider)
+
+    chunks = [
+        {
+            "id": str(uuid4()),
+            "content": "Candidate has WordPress migration experience.",
+            "metadata": {"doc_type": "resume", "filename": "resume.pdf"},
+        },
+        {
+            "id": str(uuid4()),
+            "content": "Role requires WordPress and AI orchestration.",
+            "metadata": {"doc_type": "jd", "filename": "job-description.pdf"},
+        },
+    ]
+
+    asyncio.run(agent.run(_make_input(context_chunks=chunks)))
+
+    user_message = provider.calls[0][1]["content"]
+    assert "source=resume file=resume.pdf" in user_message
+    assert "source=jd file=job-description.pdf" in user_message
+
+
 # ------------------------------------------------------------------
 # Mock provider: must annotate content clearly and set confidence=0
 # ------------------------------------------------------------------

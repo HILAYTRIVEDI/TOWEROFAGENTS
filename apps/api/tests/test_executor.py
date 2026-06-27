@@ -3,7 +3,9 @@
 import asyncio
 from uuid import uuid4
 
+import workflows.executor as executor_module
 from llm.base import ChatResult
+from core.config import Settings
 from workflows.executor import WorkflowExecutor
 from workflows.graph import WorkflowState
 
@@ -63,6 +65,34 @@ class _RealRouter:
 
     def for_task(self, task: str):
         return _RealProvider()
+
+
+class _LongFinalProvider(_RealProvider):
+    async def complete(self, messages, model=None) -> ChatResult:
+        system = messages[0]["content"] if messages else ""
+        if "synthesize" in system.lower() or "final" in system.lower():
+            return ChatResult(
+                content=(
+                    "RECOMMENDATION: human_review_required\n"
+                    "SUMMARY: Candidate demonstrates strong alignment with the role across "
+                    "WordPress engineering, backend migration work, AI orchestration, and "
+                    "cross-functional delivery. The summary intentionally runs beyond the old "
+                    "three-hundred-character limit so the regression test proves the persisted "
+                    "report is not cut off mid sentence or mid word.\n"
+                    "NEXT STEPS: Keep the complete final decision text visible for human review."
+                ),
+                provider="aiml",
+                model="aiml-gpt4",
+            )
+        return await super().complete(messages, model=model)
+
+
+class _LongFinalRouter:
+    def __init__(self, settings) -> None:
+        self.settings = settings
+
+    def for_task(self, task: str):
+        return _LongFinalProvider()
 
 
 def _base_state(**overrides) -> WorkflowState:
@@ -404,6 +434,19 @@ def test_full_run_with_real_provider_yields_complete_report() -> None:
 
     # recommendation set from final-decision (real provider said "advance")
     assert report.recommendation == "advance"
+
+
+def test_production_executor_summary_is_not_truncated_or_needlessly_scaffolded(monkeypatch) -> None:
+    monkeypatch.setattr(executor_module, "LLMRouter", _LongFinalRouter)
+    executor = WorkflowExecutor(
+        settings=Settings(llm_provider="aiml", aiml_api_key="test", aiml_default_model="test")
+    )
+    result = asyncio.run(executor.run(_base_state()))
+
+    summary = result["report"].summary
+    assert "0 agent(s) skipped" not in summary
+    assert "not yet implemented" not in summary
+    assert "Keep the complete final decision text visible for human review." in summary
 
 
 def test_full_run_requires_human_review_always_true() -> None:

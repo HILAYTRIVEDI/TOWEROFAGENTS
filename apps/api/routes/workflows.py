@@ -20,6 +20,8 @@ from db.documents import DocumentRepository
 from db.queries import SupabaseWorkflowRepository, WorkflowRepository
 from db.supabase_client import create_supabase_client
 from models.schemas import (
+    AgentFindingRead,
+    BandMessageRead,
     WorkflowBandSessionRequest,
     WorkflowCreate,
     WorkflowRead,
@@ -35,6 +37,11 @@ from workflows.templates import get_template
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 logger = logging.getLogger(__name__)
+
+_TARGETED_CONTEXT_QUERIES = {
+    "resume": "Resume evidence: candidate work history, skills, projects, experience, education, and qualifications.",
+    "jd": "Job description evidence: role requirements, responsibilities, required skills, preferred qualifications, and evaluation criteria.",
+}
 
 
 def get_workflow_repository(
@@ -57,6 +64,34 @@ def get_retriever(settings: Settings = Depends(get_settings)) -> Retriever:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error
+
+
+async def _retrieve_workflow_context(
+    *,
+    workflow: dict,
+    artifacts: list[dict],
+    embedding_provider: EmbeddingProvider,
+    retriever: Retriever,
+) -> tuple[list[dict], list[str]]:
+    base_query = workflow.get("user_request") or workflow["title"]
+    artifact_types = {str(artifact.get("doc_type", "")) for artifact in artifacts}
+    queries = [base_query]
+    if "resume" in artifact_types:
+        queries.append(f"{base_query}\n{_TARGETED_CONTEXT_QUERIES['resume']}")
+    if artifact_types & {"jd", "job_description"}:
+        queries.append(f"{base_query}\n{_TARGETED_CONTEXT_QUERIES['jd']}")
+
+    chunks_by_key: dict[str, dict] = {}
+    for query in queries:
+        query_embedding = await embedding_provider.embed_query(query)
+        for chunk in await retriever.search(
+            query_embedding=query_embedding,
+            org_id=str(workflow["org_id"]),
+            workflow_id=str(workflow["id"]),
+        ):
+            key = str(chunk.get("id") or f"{chunk.get('document_id')}:{chunk.get('content')}")
+            chunks_by_key.setdefault(key, chunk)
+    return list(chunks_by_key.values()), queries
 
 
 @router.post("", response_model=WorkflowRead, status_code=status.HTTP_201_CREATED)
@@ -219,19 +254,17 @@ async def run_workflow(
             template = None
         selected_agents = template.agent_slugs if template else []
         retrieved_context = []
+        retrieval_queries = []
         retrieval_error = None
         try:
-            query_embedding = await embedding_provider.embed_query(
-                workflow.get("user_request") or workflow["title"]
+            retrieved_context, retrieval_queries = await _retrieve_workflow_context(
+                workflow=workflow,
+                artifacts=artifacts,
+                embedding_provider=embedding_provider,
+                retriever=retriever,
             )
         except RuntimeError as error:
             retrieval_error = str(error)
-        else:
-            retrieved_context = await retriever.search(
-                query_embedding=query_embedding,
-                org_id=str(workflow["org_id"]),
-                workflow_id=str(workflow["id"]),
-            )
         result = await WorkflowExecutor(settings=settings).run(
             {
                 "workflow_id": str(workflow["id"]),
@@ -249,6 +282,7 @@ async def run_workflow(
             }
         )
         result["payload"]["force_reindex_requested"] = payload.force_reindex
+        result["payload"]["retrieval_queries"] = retrieval_queries
         if retrieval_error:
             result["payload"]["retrieval_error"] = retrieval_error
         band_room_id = workflow.get("band_room_id") or settings.band_default_room_id
@@ -263,6 +297,30 @@ async def run_workflow(
             report=result["report"],
             payload=result["payload"],
         )
+        for slug, finding in ordered_findings:
+            try:
+                await repository.save_agent_finding(
+                    {
+                        "org_id": str(workflow["org_id"]),
+                        "workflow_id": str(workflow["id"]),
+                        "agent_slug": slug,
+                        "finding_type": finding.finding_type,
+                        "severity": finding.severity,
+                        "title": finding.title,
+                        "content": finding.content,
+                        "evidence_chunk_ids": finding.evidence_chunk_ids,
+                        "confidence": finding.confidence,
+                        "requires_human_review": finding.requires_human_review,
+                        "raw_output": finding.model_dump(mode="json"),
+                    }
+                )
+            except Exception as error:  # noqa: BLE001
+                logger.warning(
+                    "Agent finding persistence failed for workflow %s agent %s: %s",
+                    workflow_id,
+                    slug,
+                    error,
+                )
         if band_room_id and ordered_findings:
             try:
                 posted_messages = await WorkflowRoomAuditor(settings).post_discussion(
@@ -335,3 +393,21 @@ async def get_workflow_report(
             detail="Workflow report not found",
         )
     return WorkflowReportRead.model_validate(report)
+
+
+@router.get("/{workflow_id}/messages", response_model=list[BandMessageRead])
+async def get_workflow_messages(
+    workflow_id: UUID,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+) -> list[BandMessageRead]:
+    rows = await repository.get_band_messages(workflow_id)
+    return [BandMessageRead.model_validate(row) for row in rows]
+
+
+@router.get("/{workflow_id}/findings", response_model=list[AgentFindingRead])
+async def get_workflow_findings(
+    workflow_id: UUID,
+    repository: WorkflowRepository = Depends(get_workflow_repository),
+) -> list[AgentFindingRead]:
+    rows = await repository.get_agent_findings(workflow_id)
+    return [AgentFindingRead.model_validate(row) for row in rows]

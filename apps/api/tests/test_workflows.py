@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import httpx
 from fastapi.testclient import TestClient
 
 from core.config import Settings, get_settings
@@ -40,6 +41,7 @@ class FakeWorkflowRepository:
         self.report: dict | None = None
         self.band_room_id = band_room_id
         self.band_messages: list[dict] = []
+        self.agent_findings: list[dict] = []
 
     def row(self) -> dict:
         return {
@@ -93,9 +95,34 @@ class FakeWorkflowRepository:
         return self.report if report_id == self.report_id else None
 
     async def save_band_message(self, message: dict) -> dict:
-        row = {**message, "id": uuid4()}
+        row = {**message, "id": uuid4(), "created_at": datetime.now(UTC)}
         self.band_messages.append(row)
         return row
+
+    async def get_band_messages(self, workflow_id: UUID) -> list[dict]:
+        if workflow_id != self.workflow_id:
+            return []
+        return self.band_messages
+
+    async def save_agent_finding(self, finding: dict) -> dict:
+        row = {**finding, "id": uuid4(), "created_at": datetime.now(UTC)}
+        if row["severity"] == "warning":
+            row["severity"] = "medium"
+        if row["severity"] == "error":
+            row["severity"] = "high"
+        row["evidence_chunk_ids"] = [str(UUID(str(value))) for value in row["evidence_chunk_ids"]]
+        self.agent_findings.append(row)
+        return row
+
+    async def get_agent_findings(self, workflow_id: UUID) -> list[dict]:
+        if workflow_id != self.workflow_id:
+            return []
+        return self.agent_findings
+
+
+class FailingWorkflowRepository(FakeWorkflowRepository):
+    async def list_workflows(self, org_id: UUID) -> list[dict]:
+        raise httpx.ConnectError("Name or service not known")
 
 
 class FakeDocumentRepository:
@@ -127,6 +154,16 @@ class FakeDocumentRepository:
                 "status": "uploaded",
                 "created_at": datetime.now(UTC),
             },
+            {
+                "id": uuid4(),
+                "org_id": org_id,
+                "workflow_id": self.workflow_id,
+                "doc_type": "jd",
+                "filename": "job-description.pdf",
+                "mime_type": "application/pdf",
+                "status": "indexed",
+                "created_at": datetime.now(UTC),
+            },
         ]
 
 
@@ -150,7 +187,23 @@ class FakeRetriever:
 
     async def search(self, **kwargs) -> list[dict]:
         self.calls.append(kwargs)
-        return [{"id": uuid4(), "content": "shared policy context"}]
+        call_index = len(self.calls)
+        if call_index == 2:
+            doc_type = "resume"
+            content = "resume context"
+        elif call_index == 3:
+            doc_type = "jd"
+            content = "job description context"
+        else:
+            doc_type = "policy"
+            content = "shared policy context"
+        return [
+            {
+                "id": uuid4(),
+                "content": content,
+                "metadata": {"doc_type": doc_type, "filename": f"{doc_type}.pdf"},
+            }
+        ]
 
 
 def test_list_workflows_without_org_scope_is_empty() -> None:
@@ -175,6 +228,23 @@ def test_list_workflows_is_org_scoped() -> None:
 
     assert response.status_code == 200
     assert response.json()[0]["title"] == "Candidate review"
+
+
+def test_list_workflows_reports_external_dependency_failure() -> None:
+    repository = FailingWorkflowRepository()
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    try:
+        response = TestClient(app).get(f"/workflows?org_id={repository.org_id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": (
+            "External service unavailable. Check configured service URLs "
+            "and network/DNS connectivity."
+        )
+    }
 
 
 def test_create_and_get_workflow() -> None:
@@ -331,19 +401,34 @@ def test_run_workflow_persists_review_report() -> None:
     assert "human_review_required" in report.json()["recommendation"]
     assert report.json()["requires_human_review"] is True
     # Embedding + retrieval plumbing must still be exercised
-    assert embedding_provider.queries == ["Assess candidate against role"]
+    assert embedding_provider.queries[0] == "Assess candidate against role"
+    assert any("Resume evidence" in query for query in embedding_provider.queries)
+    assert any("Job description evidence" in query for query in embedding_provider.queries)
     assert retriever.calls[0]["org_id"] == str(repository.org_id)
     assert retriever.calls[0]["workflow_id"] == str(repository.workflow_id)
+    assert len(retriever.calls) == 3
     assert repository.report is not None
-    assert repository.report["report_payload"]["retrieved_context_count"] == 1
+    assert repository.report["report_payload"]["retrieved_context_count"] == 3
     # New payload shape from specialist_agents_v1
     payload = repository.report["report_payload"]
     assert payload["execution_mode"] == "specialist_agents_v1"
     assert isinstance(payload["agents_ran"], list)
     assert isinstance(payload["agents_skipped"], list)
+    assert any("Resume evidence" in query for query in payload["retrieval_queries"])
+    assert any("Job description evidence" in query for query in payload["retrieval_queries"])
     # Mock provider means any_mock is True and requires_human_review is True
     assert payload["any_mock"] is True
     assert payload["band_audit"] == {"room_id": None, "message_count": 0, "modes": {}}
+    assert len(repository.agent_findings) == len(payload["agents_ran"])
+    assert repository.agent_findings[0]["agent_slug"] == "workflow-router"
+    assert repository.agent_findings[0]["content"]
+    assert repository.agent_findings[0]["severity"] in {
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical",
+    }
 
 
 def test_run_workflow_posts_mock_band_audit_when_room_configured() -> None:
@@ -390,6 +475,54 @@ def test_run_workflow_posts_mock_band_audit_when_room_configured() -> None:
     assert repository.band_messages[-1]["raw_payload"]["mentions"] == [
         {"handle": "hr-reviewer", "kind": "mention"}
     ]
+
+
+def test_get_workflow_messages_and_findings() -> None:
+    repository = FakeWorkflowRepository()
+    finding_id = uuid4()
+    repository.band_messages.append(
+        {
+            "id": uuid4(),
+            "workflow_id": str(repository.workflow_id),
+            "band_message_id": None,
+            "band_room_id": "room-demo",
+            "sender_type": "agent",
+            "sender_ref": "workflow-router",
+            "content": "@rag-retriever routing complete",
+            "message_type": "message",
+            "raw_payload": {"mode": "mock"},
+            "created_at": datetime.now(UTC),
+        }
+    )
+    repository.agent_findings.append(
+        {
+            "id": finding_id,
+            "workflow_id": str(repository.workflow_id),
+            "agent_slug": "workflow-router",
+            "finding_type": "routing",
+            "severity": "info",
+            "title": "Route selected",
+            "content": "Full agent reasoning is persisted here.",
+            "evidence_chunk_ids": [],
+            "confidence": 0.6,
+            "requires_human_review": True,
+            "raw_output": {"agent_name": "Workflow Router"},
+            "created_at": datetime.now(UTC),
+        }
+    )
+    app.dependency_overrides[get_workflow_repository] = lambda: repository
+    client = TestClient(app)
+    try:
+        messages = client.get(f"/workflows/{repository.workflow_id}/messages")
+        findings = client.get(f"/workflows/{repository.workflow_id}/findings")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert messages.status_code == 200
+    assert messages.json()[0]["raw_payload"]["mode"] == "mock"
+    assert findings.status_code == 200
+    assert findings.json()[0]["id"] == str(finding_id)
+    assert findings.json()[0]["content"] == "Full agent reasoning is persisted here."
 
 
 def test_get_missing_workflow_report_returns_not_found() -> None:

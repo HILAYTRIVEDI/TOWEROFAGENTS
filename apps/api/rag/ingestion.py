@@ -66,7 +66,13 @@ async def index_document(
     try:
         content = await store.download_document(storage_path)
         parsed = parse_document(filename, content)
-        chunks = chunk_text(parsed.text, parsed.metadata)
+        base_metadata = {
+            **parsed.metadata,
+            "filename": filename,
+            "doc_type": document.get("doc_type", "other"),
+            "document_id": str(document_id),
+        }
+        chunks = chunk_text(parsed.text, base_metadata)
 
         records: list[dict[str, Any]] = []
         if chunks:

@@ -1,5 +1,7 @@
 import type {
   AgentDescriptor,
+  AgentFindingRead,
+  BandMessageRead,
   HealthStatus,
   DocumentRead,
   DocumentType,
@@ -109,6 +111,12 @@ export function listOrganizationDocuments(orgId: string): Promise<DocumentRead[]
   });
 }
 
+export function listWorkflowDocuments(workflowId: string): Promise<DocumentRead[]> {
+  return apiRequest(`/workflows/${workflowId}/documents`, {
+    cache: "no-store",
+  });
+}
+
 export function uploadWorkflowDocument(
   workflowId: string,
   file: File,
@@ -160,8 +168,39 @@ export async function deleteOrganizationDocument(
   }
 }
 
+export async function deleteWorkflowDocument(
+  workflowId: string,
+  documentId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${apiBaseUrl()}/workflows/${workflowId}/documents/${documentId}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { detail?: string }
+      | null;
+    throw new ApiError(
+      body?.detail ?? `API request failed (${response.status})`,
+      response.status,
+    );
+  }
+}
+
 export function getWorkflowReport(workflowId: string): Promise<WorkflowReport> {
   return apiRequest(`/workflows/${workflowId}/report`, { cache: "no-store" });
+}
+
+export function getWorkflowMessages(workflowId: string): Promise<BandMessageRead[]> {
+  return apiRequest(`/workflows/${workflowId}/messages`, { cache: "no-store" });
+}
+
+export function getWorkflowFindings(workflowId: string): Promise<AgentFindingRead[]> {
+  return apiRequest(`/workflows/${workflowId}/findings`, { cache: "no-store" });
 }
 
 export function getReport(reportId: string): Promise<WorkflowReport> {

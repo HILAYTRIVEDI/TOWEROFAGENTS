@@ -44,6 +44,8 @@ class DocumentRepository(Protocol):
 
     async def list_workflow_documents(self, workflow_id: UUID) -> list[dict[str, Any]]: ...
 
+    async def delete_workflow_document(self, workflow_id: UUID, document_id: UUID) -> bool: ...
+
     async def download_document(self, storage_path: str) -> bytes: ...
 
     async def set_document_status(self, document_id: Any, status: str) -> None: ...
@@ -103,6 +105,9 @@ class SupabaseDocumentRepository:
 
     async def list_workflow_documents(self, workflow_id: UUID) -> list[dict[str, Any]]:
         return await asyncio.to_thread(self._list_workflow_documents, workflow_id)
+
+    async def delete_workflow_document(self, workflow_id: UUID, document_id: UUID) -> bool:
+        return await asyncio.to_thread(self._delete_workflow_document, workflow_id, document_id)
 
     async def download_document(self, storage_path: str) -> bytes:
         return await asyncio.to_thread(self._download_document, storage_path)
@@ -264,13 +269,40 @@ class SupabaseDocumentRepository:
         )
         return bool(deleted.data)
 
+    def _delete_workflow_document(self, workflow_id: UUID, document_id: UUID) -> bool:
+        document = (
+            self._client.table("documents")
+            .select("storage_path")
+            .eq("id", str(document_id))
+            .eq("workflow_id", str(workflow_id))
+            .limit(1)
+            .execute()
+        )
+        if not document.data:
+            return False
+
+        storage_path = document.data[0]["storage_path"]
+        self._client.storage.from_(self._bucket).remove([storage_path])
+
+        deleted = (
+            self._client.table("documents")
+            .delete()
+            .eq("id", str(document_id))
+            .eq("workflow_id", str(workflow_id))
+            .execute()
+        )
+        return bool(deleted.data)
+
     def _list_workflow_documents(self, workflow_id: UUID) -> list[dict[str, Any]]:
         # Ingestion needs storage_path + filename; org scope comes from the row so
         # chunks stay tenant-scoped without trusting client input.
         response = (
             self._client.table("documents")
-            .select("id,org_id,workflow_id,filename,storage_path,status")
+            .select(
+                "id,org_id,workflow_id,doc_type,filename,storage_path,mime_type,status,created_at"
+            )
             .eq("workflow_id", str(workflow_id))
+            .order("created_at", desc=True)
             .execute()
         )
         return response.data or []

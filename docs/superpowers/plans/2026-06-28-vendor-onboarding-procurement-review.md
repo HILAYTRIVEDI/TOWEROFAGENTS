@@ -462,7 +462,7 @@ git commit -m "feat(agents): add vendor specialist agents (procurement/legal/sec
 - Produces: `VendorControllerAgent(BaseAgent)` — `slug = "vendor-controller"`, `category = "vendor"`, `consumes_prior_findings = True`, `run(agent_input) -> AgentFinding` with `finding_type = "final_decision"`. Its content begins with a `RECOMMENDATION:` line whose value is one of `approve`, `reject`, `conditional_approval`, `needs_review` (vendor vocabulary, distinct from HR's advance/decline). It renders `agent_input.prior_findings` into the prompt.
 - Consumes: `AgentInput.prior_findings` (populated by Task 1's plumbing).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `apps/api/tests/test_vendor_agents.py`:
 
@@ -513,12 +513,12 @@ def test_controller_mock_annotates():
     assert finding.confidence == 0.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_agents.py -k controller -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'agents.vendor.vendor_controller'`.
 
-- [ ] **Step 3: Implement the controller**
+- [x] **Step 3: Implement the controller**
 
 Create `apps/api/agents/vendor/vendor_controller.py`:
 
@@ -598,17 +598,20 @@ class VendorControllerAgent(BaseAgent):
         )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_agents.py -k controller -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/agents/vendor/vendor_controller.py apps/api/tests/test_vendor_agents.py
 git commit -m "feat(agents): add vendor controller agent with approve/reject/conditional/needs_review vocabulary"
 ```
+
+> ✅ **COMPLETE** — 3/3 controller tests pass, 28/28 vendor agent tests pass.
+> Implementation note: test commands used `python3` because `python` is not available on this machine's PATH. The initial red check failed as expected with `ModuleNotFoundError: No module named 'agents.vendor.vendor_controller'`; final green checks were `cd apps/api && python3 -m pytest tests/test_vendor_agents.py -k controller -v` and `cd apps/api && python3 -m pytest tests/test_vendor_agents.py -v`.
 
 ---
 

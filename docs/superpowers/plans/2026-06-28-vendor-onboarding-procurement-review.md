@@ -905,7 +905,7 @@ git commit -m "feat(workflows): add generic DecisionPacket schema and builder"
 - The report node, after building `WorkflowReportRead`, computes `build_decision_packet(ordered_findings=..., audit_trail=...)` and stores it under `report.report_payload["decision_packet"]` (a JSON dict). The audit trail includes `workflow_id`, `template_slug`, `agents_ran`, `agents_skipped`, `any_mock`, and `generated_at` (ISO string).
 - The executor reads `report.report_payload.get("decision_packet")` from the validated report and, when present, sets `payload["decision_packet"] = <that dict>` so it persists in the `report_payload` DB column. HR runs (no controller / no decision packet desired) are unaffected because the packet is built for every run but only carries a real recommendation when a controller finding exists; storing it is harmless and additive. **To honor "do not change HR behavior", gate packet construction on the presence of a controller-typed finding** — see Step 3.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `apps/api/tests/test_vendor_workflow.py`:
 
@@ -954,12 +954,12 @@ def test_vendor_run_produces_decision_packet_in_payload():
 
 > Note: this test exercises the real LangGraph graph with the mock provider. It requires `langgraph` to be installed (already a project dependency). If the agents are not yet registered (Task 6), the executor will raise `KeyError` on the slug — run this test *after* Task 6, or temporarily register via monkeypatch. Recommended: keep this test in the file but mark it to run green only once Task 6 lands. To avoid an ordering trap, this step's "verify fail" is about the packet plumbing, not registration.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_workflow.py -k decision_packet -v`
 Expected: FAIL — `KeyError: 'decision_packet'` (payload has no such key yet), or `KeyError` on the agent slug if Task 6 has not run. Either failure confirms the feature is absent.
 
-- [ ] **Step 3: Build + attach the packet in the report node**
+- [x] **Step 3: Build + attach the packet in the report node**
 
 In `apps/api/workflows/agent_nodes.py`:
 
@@ -1003,7 +1003,7 @@ _FINAL_DECISION_TYPE = "final_decision"
 
 Confirm the variable holding the findings list inside `make_report_node` is named `findings` and that `state["ran_slugs"]` is in scope (it is, per the existing node). If the report node reconstructs findings under a different name, align to it.
 
-- [ ] **Step 4: Merge the packet into the executor payload**
+- [x] **Step 4: Merge the packet into the executor payload**
 
 In `apps/api/workflows/executor.py`, after `report = WorkflowReportRead.model_validate(...)` and before building the return dict, add:
 
@@ -1017,7 +1017,7 @@ Then in the returned `"payload"` dict, append (after `"any_mock": any_mock,`):
                 **({"decision_packet": decision_packet} if decision_packet else {}),
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 (Run after Task 6 registration is in place.)
 Run: `cd apps/api && python -m pytest tests/test_vendor_workflow.py -v`
@@ -1027,12 +1027,15 @@ Regression:
 Run: `cd apps/api && python -m pytest tests/ -v`
 Expected: PASS (HR tests unchanged; HR payload has no `decision_packet` key because no `vendor-controller` slug ran).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/workflows/agent_nodes.py apps/api/workflows/executor.py apps/api/tests/test_vendor_workflow.py
 git commit -m "feat(workflows): attach decision packet to report payload for controller-gated runs"
 ```
+
+> ✅ **COMPLETE** — focused packet payload test passes; full API suite passes (165/165).
+> Implementation note: the Task 5 test uses local monkeypatched vendor agent doubles so the packet plumbing is verified before Task 6 registers the real vendor agents.
 
 ---
 

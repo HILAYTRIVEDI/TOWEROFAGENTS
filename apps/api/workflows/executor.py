@@ -47,6 +47,7 @@ class WorkflowExecutor:
         )
 
         report = WorkflowReportRead.model_validate(final_state["report_result"])
+        decision_packet = report.report_payload.get("decision_packet")
 
         return {
             "report": report,
@@ -63,5 +64,6 @@ class WorkflowExecutor:
                     str(c["id"]) for c in state["retrieved_context"] if c.get("id")
                 ],
                 "any_mock": any_mock,
+                **({"decision_packet": decision_packet} if decision_packet else {}),
             },
         }

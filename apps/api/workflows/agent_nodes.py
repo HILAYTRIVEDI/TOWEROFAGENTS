@@ -8,11 +8,13 @@ report_result to close the graph.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from agents.registry import AGENT_CLASS_BY_SLUG
 from models.schemas import AgentFinding, AgentInput, WorkflowReportRead
+from workflows.decision_packet import build_decision_packet
 
 if TYPE_CHECKING:
     from workflows.graph import WorkflowState
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _FINAL_DECISION_SLUG = "final-decision"
+_VENDOR_CONTROLLER_SLUG = "vendor-controller"
 _INTERVIEW_PLAN_TYPE = "interview_plan"
 _POLICY_CHECK_TYPE = "policy_check"
 
@@ -229,6 +232,22 @@ def make_report_node():
             evidence_chunk_ids=evidence_ids,
             requires_human_review=requires_human_review,
         )
+
+        ordered = list(zip(ran_slugs, findings, strict=False))
+        if any(slug == _VENDOR_CONTROLLER_SLUG for slug, _finding in ordered):
+            audit_trail = {
+                "workflow_id": state["workflow_id"],
+                "template_slug": state.get("template_slug"),
+                "agents_ran": ran_slugs,
+                "agents_skipped": skipped_slugs,
+                "any_mock": any_mock,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            packet = build_decision_packet(
+                ordered_findings=ordered,
+                audit_trail=audit_trail,
+            )
+            report.report_payload["decision_packet"] = packet.model_dump(mode="json")
 
         return {"report_result": report.model_dump(mode="json")}
 

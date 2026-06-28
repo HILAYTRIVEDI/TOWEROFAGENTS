@@ -10,6 +10,9 @@ class BaseAgent(ABC):
     category: str
     description: str
     instructions: str
+    # When True, the workflow node fills AgentInput.prior_findings with the
+    # accumulated findings so controller-style agents can synthesize them.
+    consumes_prior_findings: bool = False
 
     def __init__(self, chat_provider: ChatProvider | None = None) -> None:
         self._chat_provider = chat_provider

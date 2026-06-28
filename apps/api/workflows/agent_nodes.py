@@ -93,10 +93,12 @@ def make_agent_node(slug: str, router: Any = None):
         provider = router.for_task(slug) if router else None
         agent = agent_cls(chat_provider=provider)
 
-        # final-decision receives all prior findings so it can synthesise.
-        prior_findings: list[dict] = []
-        if slug == _FINAL_DECISION_SLUG:
-            prior_findings = list(state["agent_findings"])
+        # Agents that set consumes_prior_findings=True (or are the legacy
+        # final-decision slug) receive all accumulated findings so they can
+        # synthesise across the workflow run.  Check the instance so that
+        # both real classes and factory callables resolve correctly.
+        consumes_prior = getattr(agent, "consumes_prior_findings", False) or slug == _FINAL_DECISION_SLUG
+        prior_findings = list(state["agent_findings"]) if consumes_prior else []
 
         agent_input = AgentInput(
             workflow_id=state["workflow_id"],

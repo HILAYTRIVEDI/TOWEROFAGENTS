@@ -44,6 +44,31 @@ class AgentFinding(BaseModel):
     requires_human_review: bool = False
 
 
+class DecisionPacketFinding(BaseModel):
+    agent_name: str
+    finding_type: str
+    severity: str
+    title: str
+    content: str
+    evidence_chunk_ids: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class DecisionPacket(BaseModel):
+    """Generic, reusable decision packet for any enterprise review workflow."""
+
+    recommendation: str
+    executive_summary: str
+    evidence_chunk_ids: list[str] = Field(default_factory=list)
+    agent_findings: list[DecisionPacketFinding] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
+    disagreements: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    human_approval_required: bool = True
+    audit_trail: dict[str, Any] = Field(default_factory=dict)
+
+
 class WorkflowCreate(BaseModel):
     org_id: UUID
     title: str = Field(min_length=1, max_length=200)

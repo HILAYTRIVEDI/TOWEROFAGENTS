@@ -629,7 +629,7 @@ git commit -m "feat(agents): add vendor controller agent with approve/reject/con
 - Produces (decision_packet.py): `build_decision_packet(*, ordered_findings: list[tuple[str, AgentFinding]], controller_finding_type: str = "final_decision", audit_trail: dict[str, Any]) -> DecisionPacket`. Generic over any workflow — it does not hardcode vendor slugs. Recommendation parsing reads the first `RECOMMENDATION:` line of the controller finding's content; if none is found or the controller finding is mock/absent, recommendation falls back to `"needs_review"`.
 - Consumes: `models.schemas.AgentFinding`, `DecisionPacket`, `DecisionPacketFinding`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/test_decision_packet.py`:
 
@@ -733,12 +733,12 @@ def test_agent_findings_mirror_inputs():
     assert [f.agent_name for f in packet.agent_findings] == ["Procurement Agent", "Controller Agent"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && python -m pytest tests/test_decision_packet.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'workflows.decision_packet'`.
 
-- [ ] **Step 3: Add the schemas**
+- [x] **Step 3: Add the schemas**
 
 In `apps/api/models/schemas.py`, add after `AgentFinding` (keeping `Any` already imported at top):
 
@@ -768,7 +768,7 @@ class DecisionPacket(BaseModel):
     audit_trail: dict[str, Any] = Field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Implement the builder**
+- [x] **Step 4: Implement the builder**
 
 Create `apps/api/workflows/decision_packet.py`:
 
@@ -877,17 +877,20 @@ def build_decision_packet(
     )
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd apps/api && python -m pytest tests/test_decision_packet.py -v`
 Expected: PASS (all cases).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/models/schemas.py apps/api/workflows/decision_packet.py apps/api/tests/test_decision_packet.py
 git commit -m "feat(workflows): add generic DecisionPacket schema and builder"
 ```
+
+> ✅ **COMPLETE** — 7/7 decision-packet tests pass, 30/30 adjacent vendor agent/workflow tests pass.
+> Implementation note: test commands used `python3` because `python` is not available on this machine's PATH. The initial red check failed as expected with `ModuleNotFoundError: No module named 'workflows.decision_packet'`.
 
 ---
 

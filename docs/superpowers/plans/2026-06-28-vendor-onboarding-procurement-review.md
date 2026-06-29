@@ -1231,11 +1231,11 @@ git commit -m "feat(api): add vendor doc-type targeted context retrieval queries
 - Produces: `public.agents` rows for the six vendor agents; a `public.workflow_templates` row for `vendor-onboarding-review`; sample vendor `public.documents` (and any chunk rows the existing seed pattern uses) for a demo vendor "Acme Analytics". All inserts use the existing on-conflict upsert pattern so re-running is idempotent.
 - Consumes: existing seed structure/columns.
 
-- [ ] **Step 1: Inspect the existing seed pattern**
+- [x] **Step 1: Inspect the existing seed pattern**
 
 Read `supabase/seed.sql` fully to copy the exact column lists and on-conflict clauses used for `agents`, `workflow_templates`, and any document/chunk seeds.
 
-- [ ] **Step 2: Add vendor agent rows**
+- [x] **Step 2: Add vendor agent rows**
 
 Append to the `public.agents` insert (matching its columns `slug,name,category,description,provider_preference` and on-conflict):
 
@@ -1256,7 +1256,7 @@ on conflict (slug) do update set
 
 (Match the exact `provider_preference` values used by existing rows; if the existing rows use a different default, mirror it.)
 
-- [ ] **Step 3: Add the template row**
+- [x] **Step 3: Add the template row**
 
 Append to the `public.workflow_templates` insert (columns `slug,name,description,depth,agent_slugs,required_artifacts`, jsonb arrays):
 
@@ -1278,20 +1278,22 @@ on conflict (slug) do update set
   required_artifacts = excluded.required_artifacts;
 ```
 
-- [ ] **Step 4: Add sample demo documents**
+- [x] **Step 4: Add sample demo documents**
 
 Following the existing document-seed pattern (same table/columns, fixed UUIDs, same org as other seeds), add 3–4 non-sensitive sample vendor documents for "Acme Analytics" — a vendor profile, a contract excerpt (net-60, mutual indemnity), a pricing sheet, and intentionally **omit** a security attestation so the Security Agent has a real "missing information" gap to surface in the demo. Keep all content fictional; **no secrets, no real company data**.
 
-- [ ] **Step 5: Verify the SQL parses**
+- [x] **Step 5: Verify the SQL parses**
 
 Run: `cd <repo root> && psql "$SUPABASE_DB_URL" -f supabase/seed.sql` if a local DB is available; otherwise at minimum lint with `python -c "import pathlib; pathlib.Path('supabase/seed.sql').read_text()"` and eyeball the diff. Expected: no syntax errors; idempotent on re-run.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add supabase/seed.sql
 git commit -m "chore(seed): seed vendor agents, vendor template, and sample demo documents"
 ```
+
+> Implementation note: completed on branch `codex/vendor-task-8-seed-demo-data`. The seed mirrors the existing `aiml` provider value, adds a self-contained demo organization/workflow for Acme Analytics, and widens the document `doc_type` check in seed so the requested vendor document rows are executable until a dedicated migration owns that schema change. Verification used `python3 -c "import pathlib; pathlib.Path('supabase/seed.sql').read_text()"`; `SUPABASE_DB_URL` was not set locally, so the seed was not run through `psql`.
 
 ---
 

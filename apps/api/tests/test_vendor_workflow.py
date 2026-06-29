@@ -153,6 +153,59 @@ def test_vendor_run_produces_decision_packet_in_payload(monkeypatch):
     assert packet["audit_trail"]["template_slug"] == "vendor-onboarding-review"
 
 
+def test_vendor_targeted_context_queries_present():
+    from routes.workflows import _TARGETED_CONTEXT_QUERIES
+
+    for key in ("contract", "security_documentation", "pricing", "vendor_profile"):
+        assert key in _TARGETED_CONTEXT_QUERIES
+        assert _TARGETED_CONTEXT_QUERIES[key].strip()
+
+
+def test_vendor_artifacts_queue_targeted_context_queries():
+    from routes.workflows import _retrieve_workflow_context
+
+    class _EmbeddingProvider:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        async def embed_query(self, text: str) -> list[float]:
+            self.queries.append(text)
+            return [0.1, 0.2]
+
+    class _Retriever:
+        async def search(self, **kwargs) -> list[dict]:
+            return []
+
+    embedding_provider = _EmbeddingProvider()
+    artifacts = [
+        {"doc_type": "contract"},
+        {"doc_type": "security_documentation"},
+        {"doc_type": "pricing"},
+        {"doc_type": "vendor_profile"},
+    ]
+
+    _, queries = asyncio.run(
+        _retrieve_workflow_context(
+            workflow={
+                "id": "11111111-1111-1111-1111-111111111111",
+                "org_id": "22222222-2222-2222-2222-222222222222",
+                "title": "Vendor review",
+                "user_request": "Review vendor Acme Corp.",
+            },
+            artifacts=artifacts,
+            embedding_provider=embedding_provider,
+            retriever=_Retriever(),
+        )
+    )
+
+    assert embedding_provider.queries == queries
+    assert len(queries) == 5
+    assert any("contract terms liability" in query for query in queries)
+    assert any("data security certifications" in query for query in queries)
+    assert any("pricing total cost" in query for query in queries)
+    assert any("vendor company profile" in query for query in queries)
+
+
 def test_vendor_agents_registered():
     from agents.registry import AGENT_CLASS_BY_SLUG
 

@@ -175,9 +175,17 @@ The first fully operational workflow:
 }
 ```
 
-### Procurement & Finance Approvals (Template)
+### Vendor Onboarding Review (Production)
 
-Validates invoices, cross-references purchase orders, and evaluates spending thresholds against corporate bylaws.
+Runs a prospective vendor through procurement, legal, security, finance, compliance, and controller review. Use the `vendor-onboarding-review` template with vendor profile, contract, security documentation, and pricing artifacts.
+
+The controller produces a reusable decision packet at `report_payload.decision_packet` for human approval. The packet includes the recommendation, executive summary, specialist findings, evidence chunk IDs, risks, missing information, disagreements, next actions, and audit trail. Recommendation parsing reads the controller finding's `RECOMMENDATION:` line and falls back to `needs_review` when the controller is absent, mock-backed, or does not emit a parseable value.
+
+`DecisionPacket` and `build_decision_packet(...)` are workflow-agnostic primitives for future enterprise approval workflows; they are keyed on ordered findings and controller-style final decisions, not vendor-specific code.
+
+### Sales Lead Qualification (Template)
+
+Scores account fit, buying signals, objections, and suggested next steps for sales operators.
 
 ### Engineering Change Reviews (Template)
 

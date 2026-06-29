@@ -84,6 +84,11 @@ Band and finding-persistence failures never fail the workflow run. It returns `2
 `{ "status": "awaiting_review", "workflow_id", "report_id" }`, or `404` for an unknown workflow.
 Reports are explicitly `human_review_required`; evidence chunk IDs come only from retrieved context
 and are not invented.
+For the `vendor-onboarding-review` template, the persisted `report_payload` also includes
+`decision_packet`. This reusable packet is assembled from ordered agent findings by
+`build_decision_packet(...)` and is intended as the pattern for future enterprise approval workflows.
+Its recommendation is parsed from the controller finding's `RECOMMENDATION:` line and falls back to
+`needs_review` when the controller is absent, mock-backed, or emits no parseable recommendation.
 
 `GET /workflows/{workflow_id}/report` returns the persisted report for a workflow. `GET
 /reports/{report_id}` returns the same report by ID. Both return `404` when the report is missing.
@@ -144,6 +149,17 @@ the organization scope.
         "room_id": "band-room-id-or-null",
         "message_count": 0,
         "modes": {}
+      },
+      "decision_packet": {
+        "recommendation": "needs_review",
+        "executive_summary": "string",
+        "evidence_chunk_ids": [],
+        "risks": [],
+        "missing_information": [],
+        "disagreements": [],
+        "next_actions": [],
+        "human_approval_required": true,
+        "audit_trail": {}
       }
     }
   }

@@ -150,16 +150,16 @@ export function ReportReviewPanel({
         {decisionPacket.executive_summary}
       </p>
       <section className="detail-grid" style={{ marginTop: "1rem", marginBottom: 0 }}>
-        <DecisionPacketList title="Risks" values={decisionPacket.risks} />
-        <DecisionPacketList
+        <PacketSection title="Risks" values={decisionPacket.risks} />
+        <PacketSection
           title="Missing information"
           values={decisionPacket.missing_information}
         />
-        <DecisionPacketList
+        <PacketSection
           title="Disagreements"
           values={decisionPacket.disagreements}
         />
-        <DecisionPacketList title="Next actions" values={decisionPacket.next_actions} />
+        <PacketSection title="Next actions" values={decisionPacket.next_actions} />
       </section>
     </article>
   ) : null;
@@ -202,7 +202,10 @@ export function ReportReviewPanel({
       {packetCard}
       <article className="detail-card" style={{ marginBottom: "24px" }}>
         <p className="eyebrow">Human review</p>
+        <p style={{ marginBottom: "1rem" }}>
           This report requires a qualified reviewer before any action is taken.
+        </p>
+        {error ? (
           <p className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
             {error}
           </p>
@@ -260,7 +263,7 @@ export function ReportReviewPanel({
   );
 }
 
-function DecisionPacketList({
+function PacketSection({
   title,
   values,
 }: {

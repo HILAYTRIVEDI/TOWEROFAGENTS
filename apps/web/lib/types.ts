@@ -121,7 +121,6 @@ export interface WorkflowReport {
     agents_ran?: string[];
     agents_skipped?: string[];
     any_mock?: boolean;
-    decision_packet?: DecisionPacket;
     [key: string]: unknown;
   };
 }

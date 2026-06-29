@@ -12,7 +12,7 @@ Every human or coding agent working in this repository must read and follow:
 
 ## Purpose
 
-ATower Of Agents is a CRM/HRMS-style control tower for enterprise AI-agent workflows. The MVP proves one deep workflow, HR Candidate Screening, while exposing lighter Sales Lead Qualification and Engineering Change Review templates.
+ATower Of Agents is a CRM/HRMS-style control tower for enterprise AI-agent workflows. The MVP proves one deep workflow, HR Candidate Screening, while exposing lighter Sales Lead Qualification, Engineering Change Review, and Vendor Onboarding Procurement Review templates.
 
 This bootstrap intentionally provides contracts and replaceable integration boundaries. Do not present mocks or placeholders as production integrations.
 

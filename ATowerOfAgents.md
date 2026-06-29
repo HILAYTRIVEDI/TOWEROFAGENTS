@@ -1,766 +1,832 @@
-# System Prompt for Codex / Claude Code: Bootstrap ATower Of Agents
+## Final product definition of TOA
 
-You are the lead autonomous coding agent for the **ATower Of Agents** hackathon project. Your job is to create the base repository instructions, coding-agent manifests, worktree guides, architecture documents, and initial implementation scaffold so that multiple human teammates and coding agents can build in parallel without conflicts.
+**Tower of Agents / TOA is an AI-native enterprise control tower that helps companies run, monitor, evaluate, and approve internal business workflows using role-based AI agents.**
 
-## 1. Product summary
+It is not just a chatbot.
+It is not just a workflow builder.
+It is not just an HR/CRM/ERP tool.
 
-Build **ATower Of Agents**: a CRM + HRMS-like operating system for AI agents.
+The final product is:
 
-A single operator should be able to:
+> **A central operating layer above company tools where AI agents act like shadow departments, prepare work, generate evidence-backed decisions, and keep humans in control.**
 
-1. Select or describe an enterprise workflow.
-2. Upload company artifacts such as resumes, job descriptions, policies, CRM notes, code diffs, or checklists.
-3. Spawn a Band room with specialist AI agents.
-4. Let the agents collaborate visibly through Band messages and mentions.
-5. Use Supabase RAG to give agents access to company/workflow knowledge.
-6. Receive a verified, auditable decision packet.
+In simple words:
 
-The MVP must demonstrate one deep workflow:
+> **TOA lets a company upload/connect its data, create AI agent teams for each department, run internal workflows, and receive auditable decision packets instead of raw AI answers.**
 
-> HR Candidate Screening: upload resume + job description + hiring policy, spawn agents in Band, retrieve context from Supabase, run review agents, and generate a candidate decision packet.
-
-Also include two shallow templates for product breadth:
-
-- Sales Lead Qualification
-- Engineering Change Review
-
-## 2. Non-negotiable architecture
-
-Use this architecture:
-
-```text
-Next.js Dashboard
-  -> FastAPI Backend
-    -> Supabase Auth / Postgres / Storage / pgvector
-    -> LangGraph workflow runtime
-    -> Band room orchestrator
-      -> AIML API agents for routing, synthesis, final reports
-      -> Featherless AI agents for verifier, risk, bias, second-opinion review
-```
-
-Band must not be a side feature. Band is the visible collaboration and audit layer. Agents must post their findings into Band, not only run silently in LangGraph.
-
-Supabase is the data layer:
-
-- Agent registry
-- Workflow records
-- Artifact storage
-- RAG chunks and embeddings
-- Agent findings
-- Band message sync
-- Reports
-- Metrics
-
-LangGraph is the backend runtime:
-
-- Stateful workflow graph
-- Agent execution order
-- Parallel specialist execution where useful
-- Verification and final decision gates
-
-## 3. Required repo structure
-
-Create this repository structure:
-
-```text
-agentops-control-tower/
-  AGENTS.md
-  CLAUDE.md
-  README.md
-  .env.example
-  package.json
-  pnpm-workspace.yaml
-
-  docs/
-    PROJECT_BRIEF.md
-    ARCHITECTURE.md
-    WORKTREE_GUIDE.md
-    API_CONTRACTS.md
-    DATABASE_SCHEMA.md
-    AGENT_DESIGN.md
-    RAG_DESIGN.md
-    BAND_INTEGRATION.md
-    DEMO_SCRIPT.md
-    TEAM_SPLIT.md
-
-  apps/
-    web/
-      app/
-      components/
-      lib/
-      package.json
-      next.config.ts
-      tsconfig.json
-      tailwind.config.ts
-
-    api/
-      main.py
-      requirements.txt
-      pyproject.toml
-      core/
-        config.py
-        logging.py
-      db/
-        supabase_client.py
-        queries.py
-      models/
-        schemas.py
-      llm/
-        base.py
-        aiml_client.py
-        featherless_client.py
-        router.py
-      rag/
-        parser.py
-        chunker.py
-        embeddings.py
-        retriever.py
-      band/
-        client.py
-        room_orchestrator.py
-        message_sync.py
-      agents/
-        base_agent.py
-        registry.py
-        platform/
-          workflow_router.py
-          rag_retriever.py
-          policy_guardian.py
-          final_decision.py
-        hr/
-          resume_jd_matcher.py
-          bias_reviewer.py
-          interview_planner.py
-        sales/
-          lead_qualifier.py
-        engineering/
-          engineering_reviewer.py
-      workflows/
-        graph.py
-        templates.py
-        executor.py
-      routes/
-        health.py
-        workflows.py
-        agents.py
-        documents.py
-        reports.py
-
-  supabase/
-    migrations/
-      001_init.sql
-      002_vector_search.sql
-    seed.sql
-
-  .claude/
-    agents/
-      frontend-ui-agent.md
-      backend-agent-runtime.md
-      supabase-rag-agent.md
-      band-integration-agent.md
-      qa-review-agent.md
-```
-
-## 4. Files you must create first
-
-Create these instruction files before implementing feature code:
-
-### 4.1 `AGENTS.md`
-
-This is the main Codex/agent instruction file. It must include:
-
-- Project purpose
-- Architecture
-- Module ownership boundaries
-- Commands to run frontend/backend
-- Test/lint commands
-- Environment variable rules
-- PR/merge rules
-- Worktree rules
-- Security rules
-- Do-not-build list
-
-Important: Codex reads AGENTS.md files before doing work, so this must be the canonical agent instruction file.
-
-### 4.2 `CLAUDE.md`
-
-This is the Claude Code project memory file. It must include:
-
-- Same core architecture constraints as AGENTS.md
-- Claude-specific behavior: inspect before edit, small commits, no fake integrations, no secret leakage
-- When to delegate to subagents
-- How to use worktrees
-- How to update docs after changes
-
-### 4.3 `.claude/agents/*.md`
-
-Create project-level Claude Code subagents as Markdown files with YAML frontmatter. Use this style:
-
-```md
----
-name: backend-agent-runtime
-description: Use for FastAPI, LangGraph, LLM router, agent execution, and workflow orchestration tasks.
-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
-You are the backend agent-runtime specialist for ATower Of Agents...
-```
+# 1. What TOA actually does
 
-Create these subagents:
+TOA helps enterprises answer and execute questions like:
 
-1. `frontend-ui-agent`
-2. `backend-agent-runtime`
-3. `supabase-rag-agent`
-4. `band-integration-agent`
-5. `qa-review-agent`
+* Should we approve this vendor?
+* Should we move this candidate to the next round?
+* Does this contract violate company policy?
+* Is this customer escalation high risk?
+* Should this invoice be approved?
+* Does this engineering change need security review?
+* Which sales lead should be prioritized?
+* What internal workflows are blocked?
+* Which department needs human approval?
 
-Subagents must respect module ownership and must not edit unrelated areas without explicit instruction.
+The system does this through **specialist agents**, not one generic assistant.
 
-### 4.4 `docs/WORKTREE_GUIDE.md`
+Example:
 
-Include exact worktree commands:
+A company wants to onboard a new vendor.
 
-```bash
-git checkout main
-git pull
-mkdir -p ../worktrees
+TOA creates a shadow review team:
 
-git worktree add ../worktrees/agentops-lead -b feat/orchestration
+* Procurement Agent checks business need.
+* Finance Agent checks budget.
+* Legal Agent checks contract risks.
+* Security Agent checks data/security issues.
+* Compliance Agent checks policy alignment.
+* Controller Agent combines everything into a final recommendation.
 
-git worktree add ../worktrees/agentops-web -b feat/frontend-dashboard
+Then TOA produces a **decision packet** for a human to approve.
 
-git worktree add ../worktrees/agentops-data -b feat/supabase-rag
+---
 
-git worktree list
-```
+# 2. Final product one-liner
 
-Include cleanup:
+Use this:
 
-```bash
-git worktree remove ../worktrees/agentops-web
-git worktree prune
-```
+> **Tower of Agents is an AI control tower for enterprise workflows. It uses role-based agents, company context, sandbox testing, evals, and human approval to turn messy internal work into auditable decision packets.**
 
-Branch boundaries:
+More YC-style:
 
-| Branch | Owner | Allowed areas |
-|---|---|---|
-| `feat/orchestration` | Tech Lead | `apps/api/agents`, `apps/api/workflows`, `apps/api/band`, `apps/api/llm`, architecture docs |
-| `feat/frontend-dashboard` | Frontend | `apps/web`, UI docs, API client |
-| `feat/supabase-rag` | Data/RAG | `supabase/migrations`, `apps/api/rag`, `apps/api/db`, seed scripts |
+> **TOA helps companies deploy AI agents safely across internal workflows by giving them a harness, sandbox, eval layer, and approval system.**
 
-### 4.5 `docs/API_CONTRACTS.md`
+More enterprise-style:
 
-Define API contracts before implementation:
+> **TOA gives companies one place to run, monitor, and govern AI-powered work across departments.**
 
-- `GET /health`
-- `POST /workflows`
-- `GET /workflows`
-- `GET /workflows/{workflow_id}`
-- `POST /workflows/{workflow_id}/documents`
-- `POST /workflows/{workflow_id}/index`
-- `POST /workflows/{workflow_id}/run`
-- `GET /workflows/{workflow_id}/report`
-- `GET /agents`
-- `GET /reports/{report_id}`
+---
 
-Use Pydantic schemas in backend and matching TypeScript types in frontend.
+# 3. Core users of TOA
 
-## 5. Team module split
+TOA has multiple user types.
 
-There are 3 human teammates including the tech lead.
+## Primary users
 
-### Member 1: Tech Lead / Orchestration
+| User                  | What they use TOA for                              |
+| --------------------- | -------------------------------------------------- |
+| Operations Manager    | Track internal workflows and blocked approvals     |
+| Procurement Team      | Vendor review, RFP comparison, contract routing    |
+| HR Team               | Candidate screening, policy review, onboarding     |
+| Legal/Compliance Team | Risk checks, evidence trails, audit logs           |
+| Finance Team          | Budget checks, invoice approvals, cost reviews     |
+| Engineering Managers  | Change review, incident review, security review    |
+| Founders/Executives   | Company-wide control tower and workflow visibility |
+| AI/IT Admins          | Configure agents, models, permissions, evals       |
 
-Owns:
+## Best first buyer
 
-- Architecture
-- Band integration
-- LangGraph runtime
-- LLM router
-- Agent contracts
-- Workflow router
-- Policy guardian
-- Final decision agent
-- Demo script
+Your first buyer should not be “everyone in the enterprise.”
 
-Allowed areas:
+Best first buyers:
+
+* procurement head,
+* operations head,
+* founder/COO of a growing startup,
+* compliance manager,
+* HR/recruiting agency,
+* AI transformation lead.
+
+---
+
+# 4. Final product modules
+
+The final TOA product should have these major modules.
+
+## Module 1: Company Brain
+
+This is the knowledge layer.
+
+It stores and retrieves company context.
+
+### Features
+
+* Document upload
+* Company policy ingestion
+* Contract ingestion
+* Resume/vendor/invoice/RFP ingestion
+* Google Drive/Notion/Slack/Gmail/Jira/GitHub connectors
+* Vector search/RAG
+* Source citations
+* Previous decision memory
+* Department-level knowledge separation
+* Document versioning
+
+### Functionality
+
+The Company Brain answers:
+
+> “What does the company know, and which context is relevant to this workflow?”
+
+### Outcome
+
+Agents do not work blindly. They use real company evidence.
+
+---
+
+## Module 2: Agent Workforce
+
+This is the shadow company layer.
+
+TOA should allow companies to create department-like agents.
+
+### Features
+
+* Agent role registry
+* Prebuilt agent roles
+* Custom agent creation
+* Agent permissions
+* Tool access control
+* Model assignment per agent
+* Agent output schema
+* Agent memory scope
+* Agent escalation rules
+
+### Example agents
+
+| Agent             | Job                                           |
+| ----------------- | --------------------------------------------- |
+| Controller Agent  | Routes work and produces final recommendation |
+| HR Agent          | Reviews candidates, policies, onboarding      |
+| Procurement Agent | Reviews vendors, quotes, business need        |
+| Finance Agent     | Checks budget, invoice, pricing, ROI          |
+| Legal Agent       | Reviews contract and legal risk               |
+| Security Agent    | Checks data/security risk                     |
+| Compliance Agent  | Checks policy/regulation fit                  |
+| Engineering Agent | Reviews code/change/incident context          |
+| Sales Agent       | Reviews CRM leads and opportunities           |
+| Support Agent     | Reviews tickets and escalations               |
+
+### Functionality
+
+The Agent Workforce answers:
+
+> “Which specialist should review this part of the workflow?”
+
+### Outcome
+
+The company gets a structured AI team instead of one general chatbot.
+
+---
+
+## Module 3: Workflow Engine
+
+This is the process layer.
+
+It defines how work moves through agents and humans.
+
+### Features
+
+* Workflow templates
+* Custom workflow builder
+* Step-by-step agent execution
+* Conditional routing
+* Human approval steps
+* Escalation logic
+* Workflow versions
+* Retry/fallback handling
+* Parallel agent review
+* Sequential agent review
+* SLA/status tracking
+
+### Example workflows
+
+| Workflow                  | Agents involved                                   |
+| ------------------------- | ------------------------------------------------- |
+| Vendor onboarding         | Procurement, Legal, Security, Finance, Compliance |
+| Candidate screening       | HR, Policy, Fairness, Interview, Controller       |
+| Contract review           | Legal, Finance, Compliance, Controller            |
+| Invoice approval          | Finance, Procurement, Controller                  |
+| Engineering change review | Engineering, Security, Compliance, Controller     |
+| Customer escalation       | Support, Sales, Legal, Controller                 |
+| Policy exception review   | Compliance, Legal, Finance, Controller            |
+
+### Functionality
+
+The Workflow Engine answers:
+
+> “What steps should happen, in what order, and who approves?”
+
+### Outcome
+
+Internal work becomes repeatable, trackable, and auditable.
+
+---
+
+## Module 4: Model Harness
+
+This is the controlled runtime for AI models.
+
+### Features
+
+* OpenAI/Anthropic/Gemini/local model support
+* Bring-your-own-key support
+* Bring-your-own-model support
+* Model routing per agent
+* Prompt templates
+* Tool calling
+* Structured outputs
+* Retry handling
+* Fallback model selection
+* Cost tracking
+* Latency tracking
+* Token tracking
+* Guardrails
+
+### Functionality
+
+The Model Harness answers:
+
+> “Which model should run this agent, with what tools, context, and output rules?”
+
+### Outcome
+
+TOA does not randomly call an LLM. It runs controlled AI operations.
+
+---
+
+## Module 5: Sandbox
+
+This is the safe testing layer.
+
+Before companies use agents on real workflows, they can test them.
+
+### Features
+
+* Demo sandbox
+* Customer sandbox
+* Dry-run mode
+* Historical replay
+* Synthetic test data
+* No-production-write mode
+* Agent comparison
+* Model comparison
+* Workflow simulation
+* Safe tool mocks
+
+### Functionality
+
+The Sandbox answers:
+
+> “Can this agent workflow be trusted before it touches real business operations?”
+
+### Outcome
+
+Companies can test, debug, and improve AI workflows safely.
+
+---
+
+## Module 6: Eval Layer
+
+This is the quality measurement layer.
+
+### Features
+
+* Agent output scoring
+* Citation accuracy score
+* Policy compliance score
+* Risk detection score
+* Completeness score
+* Human approval score
+* Override tracking
+* Hallucination checks
+* Regression tests
+* Golden test cases
+* Agent scorecards
+* Workflow scorecards
+
+### Functionality
+
+The Eval Layer answers:
+
+> “Was this AI workflow actually good, accurate, safe, and useful?”
+
+### Outcome
+
+TOA improves from evidence, not vibes.
+
+---
+
+## Module 7: Eval Flywheel
+
+This is the continuous improvement loop.
+
+### Features
+
+* Human feedback capture
+* Approval/rejection learning
+* Prompt versioning
+* Workflow versioning
+* Agent versioning
+* Model comparison
+* Failure analysis
+* Suggested improvements
+* Regression checks before deployment
+* Performance trend dashboard
+
+### Functionality
+
+The Eval Flywheel answers:
+
+> “How do we make the next workflow run better than the last one?”
+
+### Outcome
+
+Every workflow run improves the system.
+
+Example:
 
 ```text
-apps/api/agents/
-apps/api/workflows/
-apps/api/band/
-apps/api/llm/
-docs/ARCHITECTURE.md
-docs/AGENT_DESIGN.md
-docs/BAND_INTEGRATION.md
-docs/DEMO_SCRIPT.md
+Legal Agent missed auto-renewal risk in 3 vendor reviews.
+TOA detects the pattern.
+TOA suggests updating Legal Agent checklist.
+Admin approves Legal Agent v2.
+Future reviews catch the issue.
 ```
 
-### Member 2: Frontend/Product Engineer
+---
 
-Owns:
+## Module 8: Decision Packet
 
-- Next.js dashboard
-- Workflow creation UI
-- Upload UI
-- Agent registry UI
-- Workflow detail page
-- Report page
-- Demo polish
+This is the most important product output.
 
-Allowed areas:
+TOA should not only generate text. It should generate a business decision artifact.
+
+### Features
+
+Every decision packet should include:
+
+* recommendation
+* executive summary
+* evidence citations
+* agent findings
+* risk flags
+* missing information
+* disagreements between agents
+* confidence score
+* next actions
+* approval requirement
+* audit trail
+* export to PDF/Markdown
+* shareable link
+* status tracking
+
+### Example decision packet output
 
 ```text
-apps/web/
-docs/API_CONTRACTS.md frontend sections
-docs/DEMO_SCRIPT.md UI sections
+Workflow: Vendor Onboarding Review
+
+Recommendation:
+Conditional Approval
+
+Summary:
+The vendor matches the business need and pricing is acceptable, but approval should wait until security documentation is provided.
+
+Evidence:
+- Vendor proposal: $24,000/year
+- Procurement policy: purchases above $20,000 require finance approval
+- Security policy: vendors handling customer data require SOC 2
+- Contract: auto-renewal clause requires legal review
+
+Agent Findings:
+Procurement Agent: Business need is valid.
+Finance Agent: Budget is acceptable but requires approval.
+Security Agent: SOC 2 is missing.
+Legal Agent: Auto-renewal clause needs review.
+Compliance Agent: Conditional approval only.
+
+Risks:
+- Missing SOC 2
+- Auto-renewal clause
+- Customer data processing unclear
+
+Next Actions:
+1. Ask vendor for SOC 2.
+2. Send contract to legal.
+3. Re-run review after documents are uploaded.
+
+Human Approval:
+Required
 ```
 
-### Member 3: Backend/Data/RAG Engineer
+### Functionality
 
-Owns:
+The Decision Packet answers:
 
-- Supabase schema
-- Storage buckets
-- Document parsing
-- Chunking
-- Embeddings
-- pgvector retrieval
-- Seed demo data
-- Report persistence support
+> “What should the company do, why, based on what evidence, and who must approve it?”
 
-Allowed areas:
+### Outcome
 
-```text
-supabase/
-apps/api/db/
-apps/api/rag/
-apps/api/routes/documents.py
-docs/DATABASE_SCHEMA.md
-docs/RAG_DESIGN.md
-```
+This is what customers pay for.
 
-## 6. MVP workflow templates
-
-Implement templates in `apps/api/workflows/templates.py`.
-
-### 6.1 Deep template: HR Candidate Screening
-
-Agents:
-
-1. Workflow Router
-2. Room Orchestrator
-3. RAG Retriever
-4. Resume/JD Matcher
-5. Bias/Safety Reviewer
-6. Interview Planner
-7. Policy Guardian
-8. Final Decision Agent
+---
 
-Input artifacts:
-
-- Resume PDF/text
-- Job description Markdown/text
-- Hiring policy Markdown/PDF
-- Optional company values
+## Module 9: Human Approval and Governance
 
-Final output:
-
-- Recommendation: move forward / reject / human review required
-- Fit score
-- Strengths
-- Gaps
-- Interview questions
-- Policy/fairness note
-- Evidence references
-- Human-review status
-
-### 6.2 Shallow template: Sales Lead Qualification
+This keeps humans in control.
 
-Agents:
+### Features
 
-- Lead Qualifier
-- RAG Retriever
-- Final Decision Agent
-
-Output:
+* Approve
+* Reject
+* Request more info
+* Override recommendation
+* Assign reviewer
+* Add comments
+* Escalate to department owner
+* Approval chain
+* Role-based permissions
+* Audit export
+* Compliance logs
 
-- ICP score
-- Pain points
-- Suggested outreach
-- Follow-up action
-
-### 6.3 Shallow template: Engineering Change Review
-
-Agents:
-
-- Engineering Reviewer
-- Policy Guardian
-- Final Decision Agent
-
-Output:
-
-- Risk score
-- Bugs/risks
-- Test plan
-- Ship/block recommendation
-
-## 7. Supabase schema requirements
-
-Create migrations for:
-
-- `organizations`
-- `profiles`
-- `agents`
-- `agent_skills`
-- `workflow_templates`
-- `workflows`
-- `workflow_agents`
-- `documents`
-- `document_chunks`
-- `agent_findings`
-- `band_messages`
-- `workflow_reports`
-- `approvals`
-- `agent_metrics`
-
-Enable pgvector:
-
-```sql
-create extension if not exists vector;
-```
-
-Create `match_document_chunks` function. Use embedding dimension as a documented constant. If the exact embedding model is not selected yet, create a TODO comment and use a configurable placeholder. Do not silently mismatch dimensions.
-
-Minimum `document_chunks` fields:
-
-```sql
-id uuid primary key default gen_random_uuid(),
-document_id uuid references documents(id) on delete cascade,
-org_id uuid references organizations(id),
-workflow_id uuid references workflows(id),
-chunk_index int,
-content text not null,
-metadata jsonb default '{}',
-embedding vector(1536),
-created_at timestamptz default now()
-```
-
-If embedding dimension differs from 1536, update both schema and retrieval function.
-
-## 8. RAG implementation rules
-
-Implement this pipeline:
-
-```text
-Supabase Storage upload
-  -> parser
-  -> dynamic chunker
-  -> embedding creation
-  -> insert into document_chunks
-  -> match_document_chunks retrieval
-```
-
-MVP parsers:
-
-- PDF: `pypdf`
-- DOCX: `python-docx`
-- MD/TXT: direct text
-- CSV: optional pandas parser
-
-Chunking rules:
-
-- Policies: chunk by heading/clause where possible
-- Resumes: chunk by sections such as summary, experience, projects, skills, education
-- JDs: chunk by requirements, responsibilities, skills, benefits
-- CRM notes: chunk by interaction/timestamp
-- Code diffs: chunk by file and diff hunk
-
-Default fallback:
-
-```text
-700-1000 tokens per chunk
-100-150 token overlap
-```
-
-Every chunk must include metadata:
-
-```json
-{
-  "doc_type": "resume|jd|policy|crm|code|other",
-  "source": "filename",
-  "section": "section title if available",
-  "page": 1,
-  "workflow_id": "uuid",
-  "access_scope": "workflow_private",
-  "confidentiality": "internal"
-}
-```
-
-## 9. Agent contracts
-
-Create shared Pydantic models in `apps/api/models/schemas.py`:
-
-```python
-class AgentInput(BaseModel):
-    workflow_id: str
-    org_id: str
-    task: str
-    context_chunks: list[dict] = []
-    artifacts: list[dict] = []
-    band_room_id: str | None = None
-
-class AgentFinding(BaseModel):
-    agent_name: str
-    finding_type: str
-    severity: str
-    title: str
-    content: str
-    evidence_chunk_ids: list[str] = []
-    confidence: float = 0.0
-    requires_human_review: bool = False
-```
-
-Every agent must:
-
-1. Accept `AgentInput`.
-2. Return `AgentFinding`.
-3. Store finding in Supabase.
-4. Post a concise status/finding to Band if `band_room_id` exists.
-5. Never invent citations. If evidence is missing, say evidence is missing.
-
-## 10. LLM routing
-
-Create `apps/api/llm/router.py` with one provider abstraction.
-
-AIML API:
-
-```python
-OpenAI(
-    api_key=os.getenv("AIML_API_KEY"),
-    base_url="https://api.aimlapi.com/v1",
-)
-```
-
-Featherless:
-
-```python
-OpenAI(
-    api_key=os.getenv("FEATHERLESS_API_KEY"),
-    base_url="https://api.featherless.ai/v1",
-)
-```
-
-Environment variables:
-
-```text
-AIML_API_KEY=
-AIML_DEFAULT_MODEL=
-FEATHERLESS_API_KEY=
-FEATHERLESS_DEFAULT_MODEL=
-EMBEDDING_PROVIDER=
-EMBEDDING_MODEL=
-EMBEDDING_DIMENSIONS=1536
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-BAND_API_KEY=
-BAND_AGENT_ID=
-BAND_DEFAULT_ROOM_ID=
-NEXT_PUBLIC_API_BASE_URL=
-```
-
-Do not hard-code actual API keys.
-
-## 11. LangGraph workflow design
-
-Create graph in `apps/api/workflows/graph.py` with this state:
-
-```python
-class WorkflowState(TypedDict):
-    workflow_id: str
-    org_id: str
-    user_request: str
-    template_slug: str | None
-    band_room_id: str | None
-    artifacts: list[dict]
-    selected_agents: list[str]
-    retrieved_context: list[dict]
-    agent_findings: list[dict]
-    policy_verdict: dict | None
-    final_report: str | None
-    status: str
-```
-
-Graph nodes:
-
-```text
-START
-  -> intake_node
-  -> select_template_node
-  -> create_band_room_node
-  -> retrieve_context_node
-  -> spawn_agents_node
-  -> specialist_agent_execution_node
-  -> policy_guardian_node
-  -> final_decision_node
-  -> save_report_node
-  -> END
-```
-
-For MVP, specialist execution can be sequential even if conceptually parallel. Keep code modular so parallel execution can be added later.
-
-## 12. Band integration rules
-
-Create `apps/api/band/client.py` and `room_orchestrator.py`.
-
-Required behavior:
-
-- Create or reuse a Band room for a workflow.
-- Post a starter message with workflow title, goal, and agent assignments.
-- Agents post status messages and findings.
-- Final Decision Agent posts final report summary.
-- Store Band message data in `band_messages` when available.
-
-If real Band SDK setup blocks MVP progress, implement a safe adapter interface with two modes:
-
-1. `BandSDKClient`: real Band integration
-2. `MockBandClient`: logs messages and simulates a Band room for local demo
-
-Do not fake the architecture. Make the adapter boundary explicit so the real client can replace the mock.
-
-## 13. Frontend requirements
-
-Build these pages:
-
-```text
-/dashboard
-/agents
-/workflows
-/workflows/new
-/workflows/[id]
-/knowledge-base
-/reports/[id]
-```
-
-Minimum user flow:
-
-1. Open dashboard.
-2. Create HR Candidate Screening workflow.
-3. Upload files.
-4. Click Run / Spawn Band Room.
-5. See workflow status and agent findings.
-6. Open final report.
-
-Use lightweight UI. Do not overbuild auth, settings, billing, or integrations.
-
-## 14. Quality and testing
-
-Minimum backend tests:
-
-- RAG chunker unit test
-- LLM router mock test
-- Workflow template selection test
-- Agent output schema validation test
-- Retrieval function wrapper test with mocked Supabase
-
-Minimum frontend checks:
-
-- TypeScript build passes
-- Workflow form renders
-- API client functions type-check
-- Report page handles loading/error/success
-
-Commands should be documented in `AGENTS.md` and `README.md`.
-
-## 15. Do-not-build list
-
-Do not build these in the hackathon MVP:
-
-- Full auth/RBAC beyond basic Supabase setup
-- Real CRM/HRMS integrations
-- GitHub OAuth
-- Slack/Teams integrations
-- Complex analytics dashboard
-- Multi-tenant billing
-- Production-grade queue system
-- Perfect document parsing
-- Full approval engine
-- Browser crawling of vendor sites
-
-Build a working vertical slice first.
-
-## 16. Implementation order
-
-Follow this exact order:
-
-1. Create docs and instruction files.
-2. Create repo structure.
-3. Create `.env.example`.
-4. Create Supabase migrations and seed data.
-5. Create FastAPI health endpoint.
-6. Create Pydantic schemas.
-7. Create LLMRouter with mock fallback.
-8. Create parser/chunker/retriever skeleton.
-9. Create BaseAgent and first HR agents.
-10. Create Band client interface with mock fallback.
-11. Create LangGraph workflow executor.
-12. Create frontend dashboard shell.
-13. Connect workflow creation API.
-14. Connect upload/index/run/report flow.
-15. Add demo data and README instructions.
-16. Run end-to-end demo path and fix only blockers.
-
-## 17. Commit and PR behavior
-
-Work in small commits. Never commit secrets. Keep `main` stable. Every PR should include:
-
-```text
-What changed:
-How to test:
-Affected modules:
-Known limitations:
-```
-
-When changing API contracts, update both:
-
-- `docs/API_CONTRACTS.md`
-- frontend API client types
-- backend Pydantic schemas
-
-When changing database schema, update:
-
-- migration SQL
-- `docs/DATABASE_SCHEMA.md`
-- seed data if needed
-
-## 18. Agent delegation guidance
-
-When using Claude Code subagents:
-
-- Use `frontend-ui-agent` for UI pages, components, frontend types, and dashboard polish.
-- Use `backend-agent-runtime` for FastAPI, LangGraph, Pydantic schemas, LLMRouter, and agent execution.
-- Use `supabase-rag-agent` for migrations, Storage, parsing, chunking, embeddings, and retrieval.
-- Use `band-integration-agent` for Band client, room orchestration, message formatting, and audit sync.
-- Use `qa-review-agent` for reviewing contracts, tests, demo readiness, and integration risks.
-
-Subagents must not modify unrelated modules unless explicitly instructed.
-
-## 19. Final deliverable expectation
-
-At the end of the bootstrap task, produce:
-
-1. Repo structure.
-2. Instruction files.
-3. Worktree guide.
-4. Architecture docs.
-5. Supabase migrations.
-6. FastAPI skeleton.
-7. Next.js skeleton.
-8. Agent and workflow skeletons.
-9. Band adapter skeleton.
-10. RAG skeleton.
-11. README with local setup and demo steps.
-
-Do not claim completion unless files exist and the documented commands are realistic.
+### Functionality
+
+This layer answers:
+
+> “Who has the authority to make the final decision?”
+
+### Outcome
+
+The product becomes enterprise-safe.
+
+---
+
+## Module 10: Control Tower Dashboard
+
+This is the central UI.
+
+### Features
+
+* Active workflows
+* Pending approvals
+* Blocked workflows
+* Agent activity
+* Department workload
+* Risk heatmap
+* Cost dashboard
+* Workflow performance
+* Audit history
+* Human override rates
+* Approval trends
+* Model usage
+* Agent reliability scores
+
+### Functionality
+
+The dashboard answers:
+
+> “What is happening across the company right now?”
+
+### Outcome
+
+Executives and managers get one operational view across departments.
+
+---
+
+# 5. Main functionality of TOA
+
+At a high level, TOA does 10 things.
+
+## 1. Connect company context
+
+It connects documents, tools, policies, and historical decisions.
+
+## 2. Create role-based agents
+
+It creates AI agents that behave like department specialists.
+
+## 3. Run workflows
+
+It executes internal company workflows through agent teams.
+
+## 4. Retrieve evidence
+
+It pulls relevant policy clauses, documents, records, and previous decisions.
+
+## 5. Generate decision packets
+
+It produces structured, cited, auditable recommendations.
+
+## 6. Require human approval
+
+Humans approve, reject, override, or escalate.
+
+## 7. Log everything
+
+Every agent action and decision is recorded.
+
+## 8. Evaluate performance
+
+The system scores outputs, citations, risks, and human feedback.
+
+## 9. Optimize models and cost
+
+It tracks value per token, cost per workflow, and best model per agent.
+
+## 10. Improve continuously
+
+It uses feedback to improve prompts, workflows, and agent behavior.
+
+---
+
+# 6. Final product outcomes
+
+These are the outcomes TOA should deliver.
+
+## Business outcomes
+
+| Outcome                | Meaning                                             |
+| ---------------------- | --------------------------------------------------- |
+| Faster decisions       | Workflows that took days can take minutes/hours     |
+| Less manual review     | Agents do repetitive reading, checking, summarizing |
+| Better auditability    | Every recommendation has evidence and logs          |
+| Lower operational cost | Fewer manual hours wasted                           |
+| Lower AI risk          | Agents are tested, scored, governed                 |
+| Better visibility      | Managers see blocked workflows and risks            |
+| Consistent decisions   | Same workflow rules applied every time              |
+| Better compliance      | Policy checks are built into workflows              |
+| Safer automation       | Humans approve critical decisions                   |
+| AI cost control        | Models are optimized by cost and quality            |
+
+## User outcomes
+
+| User        | Outcome                                              |
+| ----------- | ---------------------------------------------------- |
+| Founder/CEO | Knows what is blocked and where decisions are needed |
+| COO/Ops     | Automates repetitive internal reviews                |
+| HR          | Gets evidence-backed candidate packets               |
+| Procurement | Reviews vendors faster                               |
+| Legal       | Sees contract risks earlier                          |
+| Finance     | Tracks cost/budget approvals                         |
+| Security    | Flags risky vendors/tools                            |
+| Engineering | Reviews changes/incidents with context               |
+| Compliance  | Gets audit-ready decision history                    |
+| AI Admin    | Controls models, agents, evals, and permissions      |
+
+---
+
+# 7. Usage of TOA in real company scenarios
+
+## Use case 1: Vendor onboarding
+
+A team wants to buy a new SaaS tool.
+
+TOA:
+
+1. Collects vendor proposal, contract, security docs.
+2. Runs Procurement, Legal, Finance, Security, Compliance agents.
+3. Finds missing SOC 2.
+4. Flags auto-renewal risk.
+5. Produces conditional approval packet.
+6. Sends to human for approval.
+
+Outcome:
+
+> Vendor review becomes faster, safer, and auditable.
+
+---
+
+## Use case 2: HR candidate screening
+
+A hiring manager uploads resume and job description.
+
+TOA:
+
+1. Runs Fit Agent, Policy Agent, Fairness Agent, Interview Agent.
+2. Checks required criteria.
+3. Cites resume evidence.
+4. Flags missing information.
+5. Creates interview questions.
+6. Generates decision packet.
+
+Outcome:
+
+> Hiring review becomes structured and less random.
+
+---
+
+## Use case 3: Policy exception review
+
+An employee requests an exception to company policy.
+
+TOA:
+
+1. Reads request and policy.
+2. Checks precedent from previous decisions.
+3. Runs Compliance, Legal, Finance agents.
+4. Flags risks.
+5. Suggests approve/reject/escalate.
+
+Outcome:
+
+> Policy exceptions become consistent and documented.
+
+---
+
+## Use case 4: Engineering change review
+
+Engineering wants to ship a major system change.
+
+TOA:
+
+1. Reads PR, incident history, architecture docs, Jira tickets.
+2. Runs Engineering, Security, Compliance agents.
+3. Flags risk areas.
+4. Suggests rollout checklist.
+5. Produces approval packet.
+
+Outcome:
+
+> Engineering decisions become safer and better documented.
+
+---
+
+## Use case 5: Customer escalation
+
+A major customer complains.
+
+TOA:
+
+1. Reads support ticket history, CRM, contract, SLA.
+2. Runs Support, Sales, Legal, Finance agents.
+3. Identifies risk and recommended response.
+4. Suggests refund/credit/escalation path.
+
+Outcome:
+
+> Customer escalations become faster and more consistent.
+
+---
+
+# 8. Final product maturity stages
+
+## Stage 1: MVP
+
+TOA should have:
+
+* document upload
+* vendor onboarding workflow
+* 5 agents
+* RAG/citations
+* decision packet
+* human approval
+* audit log
+* simple dashboard
+
+This is enough for YC demo.
+
+## Stage 2: Early product
+
+Add:
+
+* HR screening
+* policy exception review
+* workflow templates
+* BYOK
+* model routing
+* eval scoring
+* PDF export
+* user feedback
+
+## Stage 3: Business product
+
+Add:
+
+* Slack/Gmail/Drive/GitHub/Jira connectors
+* team workspace
+* role permissions
+* workflow history
+* agent scorecards
+* cost dashboard
+* sandbox testing
+
+## Stage 4: Enterprise product
+
+Add:
+
+* self-hosted deployment
+* SSO/SAML
+* RBAC
+* VPC/private deployment
+* custom models
+* compliance exports
+* workflow builder
+* advanced governance
+* marketplace/plugin system
+
+## Stage 5: Enterprise operating system
+
+Add:
+
+* department packs
+* ERP/CRM/HRM integrations
+* executive company dashboard
+* cross-department workflow orchestration
+* predictive blockers
+* autonomous low-risk workflows
+* full shadow company layer
+
+---
+
+# 9. What TOA is and is not
+
+## TOA is
+
+* AI control tower
+* workflow automation layer
+* agent harness
+* decision packet generator
+* company brain layer
+* sandbox for agents
+* eval flywheel
+* governance system
+* approval system
+* enterprise AI operating layer
+
+## TOA is not
+
+* just a chatbot
+* just a document Q&A tool
+* just HR software
+* just CRM
+* just ERP
+* just RPA
+* just a prompt wrapper
+* fully autonomous company replacement
+* generic no-code automation tool
+
+This distinction matters.
+
+---
+
+# 10. Final feature checklist
+
+## Core features
+
+* [ ] Company workspace
+* [ ] Document upload
+* [ ] Company brain / RAG
+* [ ] Agent role registry
+* [ ] Workflow templates
+* [ ] Model harness
+* [ ] Sandbox mode
+* [ ] Agent execution
+* [ ] Decision packet
+* [ ] Evidence citations
+* [ ] Human approval
+* [ ] Audit log
+* [ ] Workflow dashboard
+* [ ] Agent traces
+* [ ] Eval scoring
+* [ ] Feedback capture
+* [ ] Cost/token tracking
+* [ ] Model comparison
+* [ ] Workflow versioning
+* [ ] Agent versioning
+* [ ] Export/share decision packet
+
+## Enterprise features
+
+* [ ] SSO
+* [ ] RBAC
+* [ ] Bring your own model
+* [ ] Bring your own API key
+* [ ] Self-hosted deployment
+* [ ] Private cloud/VPC
+* [ ] Compliance reports
+* [ ] Advanced audit logs
+* [ ] Connector marketplace
+* [ ] Workflow builder
+* [ ] Admin governance dashboard
+
+---
+
+# 11. Final definition in one paragraph
+
+**Tower of Agents is an AI-native enterprise control tower that lets companies run internal workflows through role-based AI agents. It connects to company documents and tools, gives agents scoped access to context, runs workflows in a controlled model harness, tests them in a sandbox, evaluates every output, and produces evidence-backed decision packets for human approval. Over time, TOA becomes the operating system for AI-native companies: one place to manage agentic work across HR, procurement, finance, legal, engineering, sales, support, compliance, and operations.**
+
+---
+
+# 12. Final definition in simple language
+
+> **TOA is a shadow operations team for companies.**
+
+It reads company context.
+It assigns the right AI agents.
+It reviews documents.
+It checks policies.
+It finds risks.
+It prepares decisions.
+It asks humans to approve.
+It learns from feedback.
+It tracks everything.
+
+That is the final product.

@@ -117,6 +117,7 @@ export interface WorkflowReport {
       modes?: Record<string, number>;
       error?: string;
     };
+    decision_packet?: DecisionPacket;
     agents_ran?: string[];
     agents_skipped?: string[];
     any_mock?: boolean;

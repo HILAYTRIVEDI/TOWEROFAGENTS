@@ -31,6 +31,78 @@ function reviewErrorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : "Review submission failed.";
 }
 
+function DecisionPacketList({
+  emptyLabel,
+  items,
+}: {
+  emptyLabel: string;
+  items: string[];
+}) {
+  return items.length > 0 ? (
+    <ul className="workflow-list">
+      {items.map((item, index) => (
+        <li className="workflow-row" key={`${item}-${index}`}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p className="notice">{emptyLabel}</p>
+  );
+}
+
+function DecisionPacketSection({ packet }: { packet: DecisionPacket }) {
+  return (
+    <article className="detail-card" style={{ marginBottom: "24px" }}>
+      <p className="eyebrow">Decision packet</p>
+      <p style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        <span className={`status-badge status-${packet.recommendation}`}>
+          {packet.recommendation.replaceAll("_", " ")}
+        </span>
+        {packet.human_approval_required ? (
+          <span className="status-badge status-pending_review">
+            Human approval required
+          </span>
+        ) : (
+          <span className="status-badge status-approved">
+            Human approval not required
+          </span>
+        )}
+      </p>
+      <p className="workflow-row-content" style={{ marginTop: "0.75rem" }}>
+        {packet.executive_summary}
+      </p>
+      <section className="detail-grid" style={{ marginTop: "1rem", marginBottom: 0 }}>
+        <div>
+          <p className="eyebrow">Risks</p>
+          <DecisionPacketList emptyLabel="No risks reported." items={packet.risks} />
+        </div>
+        <div>
+          <p className="eyebrow">Missing information</p>
+          <DecisionPacketList
+            emptyLabel="No missing information reported."
+            items={packet.missing_information}
+          />
+        </div>
+        <div>
+          <p className="eyebrow">Disagreements</p>
+          <DecisionPacketList
+            emptyLabel="No disagreements reported."
+            items={packet.disagreements}
+          />
+        </div>
+        <div>
+          <p className="eyebrow">Next actions</p>
+          <DecisionPacketList
+            emptyLabel="No next actions reported."
+            items={packet.next_actions}
+          />
+        </div>
+      </section>
+    </article>
+  );
+}
+
 export function ReportReviewPanel({
   workflowId,
   requiresHumanReview,
@@ -130,11 +202,7 @@ export function ReportReviewPanel({
       {packetCard}
       <article className="detail-card" style={{ marginBottom: "24px" }}>
         <p className="eyebrow">Human review</p>
-        <p className="workflow-row-meta" style={{ marginBottom: "1rem" }}>
           This report requires a qualified reviewer before any action is taken.
-        </p>
-
-        {error ? (
           <p className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
             {error}
           </p>

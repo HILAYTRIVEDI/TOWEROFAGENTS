@@ -151,3 +151,26 @@ def test_vendor_run_produces_decision_packet_in_payload(monkeypatch):
         "Controller Agent",
     ]
     assert packet["audit_trail"]["template_slug"] == "vendor-onboarding-review"
+
+
+def test_vendor_agents_registered():
+    from agents.registry import AGENT_CLASS_BY_SLUG
+
+    for slug in (
+        "procurement-review",
+        "legal-review",
+        "security-review",
+        "finance-review",
+        "compliance-review",
+        "vendor-controller",
+    ):
+        assert slug in AGENT_CLASS_BY_SLUG
+
+
+def test_vendor_template_registered():
+    from workflows.templates import get_template
+
+    template = get_template("vendor-onboarding-review")
+    assert template.agent_slugs[0] == "workflow-router"
+    assert "vendor-controller" in template.agent_slugs
+    assert "contract" in template.required_artifacts

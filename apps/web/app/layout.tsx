@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tower of Agents — AI Control Tower for Enterprise Workflows",
+  title: "Tower of Agents — The Governance & Execution Layer for Enterprise AI",
   description:
-    "Tower of Agents turns document-heavy internal workflows into structured, auditable decision packets using role-based AI agents and human approval.",
+    "Deploy AI into mission-critical workflows with policy-aware execution, evidence-backed decisions, and human approval. From vendor onboarding to compliance reviews.",
   icons: {
     icon: "/favicon.svg",
   },

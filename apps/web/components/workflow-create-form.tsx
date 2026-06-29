@@ -18,6 +18,10 @@ const TEMPLATES = {
     label: "Engineering Change Review",
     artifacts: ["Code diff"],
   },
+  "vendor-onboarding-review": {
+    label: "Vendor Onboarding Review",
+    artifacts: ["Vendor profile", "Contract", "Security documentation", "Pricing"],
+  },
 } as const;
 
 type TemplateSlug = keyof typeof TEMPLATES;

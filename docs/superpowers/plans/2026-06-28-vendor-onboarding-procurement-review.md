@@ -1308,7 +1308,7 @@ git commit -m "chore(seed): seed vendor agents, vendor template, and sample demo
 - Produces: a `vendor-onboarding-review` entry in the form `TEMPLATES` const (label "Vendor Onboarding Review", artifacts list). `DocumentType` extended with vendor doc types. A `DecisionPacket` TS type matching the Pydantic schema, surfaced via `WorkflowReport.report_payload.decision_packet?`. A read-only decision-packet section in the review panel rendered only when the packet is present.
 - Consumes: existing form/types/panel structure.
 
-- [ ] **Step 1: Add the template to the create form**
+- [x] **Step 1: Add the template to the create form**
 
 In `apps/web/components/workflow-create-form.tsx`, add to the `TEMPLATES` const:
 
@@ -1321,7 +1321,7 @@ In `apps/web/components/workflow-create-form.tsx`, add to the `TEMPLATES` const:
 
 (No other change needed — the form maps over `TEMPLATES` and `isTemplateSlug` derives from it.)
 
-- [ ] **Step 2: Extend types**
+- [x] **Step 2: Extend types**
 
 In `apps/web/lib/types.ts`:
 
@@ -1370,18 +1370,18 @@ export interface DecisionPacket {
 
 Ensure the existing `WorkflowReport.report_payload` type includes an optional `decision_packet?: DecisionPacket;` member (it already has an index signature `[key: string]: unknown`, so add the explicit optional field alongside it for type-safe access).
 
-- [ ] **Step 3: Render the packet in the review panel**
+- [x] **Step 3: Render the packet in the review panel**
 
 In `apps/web/components/report-review-panel.tsx`, read `report.report_payload?.decision_packet` and, when present, render a read-only section above (or below) the existing approve/reject controls showing: recommendation badge, executive summary, risks, missing information, disagreements, next actions, and a "Human approval required" indicator. Keep the existing generic approve/reject controls intact (HR continues to work because HR reports have no `decision_packet`). Use existing styling classes; no new dependencies.
 
-- [ ] **Step 4: Typecheck + build**
+- [x] **Step 4: Typecheck + build**
 
 Run: `cd apps/web && pnpm typecheck`
 Expected: no errors.
 Run: `cd apps/web && pnpm build`
 Expected: successful build.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/components/workflow-create-form.tsx apps/web/lib/types.ts apps/web/components/report-review-panel.tsx

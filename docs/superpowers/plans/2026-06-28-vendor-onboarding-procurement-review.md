@@ -1050,7 +1050,7 @@ git commit -m "feat(workflows): attach decision packet to report payload for con
 - Produces: `AGENT_CLASS_BY_SLUG` gains keys `procurement-review`, `legal-review`, `security-review`, `finance-review`, `compliance-review`, `vendor-controller`. `WORKFLOW_TEMPLATES` gains `vendor-onboarding-review` with `agent_slugs = ["workflow-router", "rag-retriever", "procurement-review", "legal-review", "security-review", "finance-review", "compliance-review", "vendor-controller"]` and `required_artifacts = ["vendor_profile", "contract", "security_documentation", "pricing"]`.
 - Consumes: `get_template` (already in templates.py), the agent classes from Tasks 2–3.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `apps/api/tests/test_vendor_workflow.py`:
 
@@ -1078,12 +1078,12 @@ def test_vendor_template_registered():
     assert "contract" in template.required_artifacts
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_workflow.py -k registered -v`
 Expected: FAIL — `AssertionError` (slugs not in registry / `ValueError: Unknown workflow template`).
 
-- [ ] **Step 3: Register the agents**
+- [x] **Step 3: Register the agents**
 
 In `apps/api/agents/registry.py`, add imports (keep alphabetical grouping with existing imports):
 
@@ -1118,7 +1118,7 @@ AGENT_TYPES = (
 )
 ```
 
-- [ ] **Step 4: Add the template**
+- [x] **Step 4: Add the template**
 
 In `apps/api/workflows/templates.py`, add inside `WORKFLOW_TEMPLATES`:
 
@@ -1146,12 +1146,12 @@ In `apps/api/workflows/templates.py`, add inside `WORKFLOW_TEMPLATES`:
     ),
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_workflow.py -v`
 Expected: PASS (registration tests + the Task 5 decision-packet test now that slugs resolve).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/agents/registry.py apps/api/workflows/templates.py apps/api/tests/test_vendor_workflow.py

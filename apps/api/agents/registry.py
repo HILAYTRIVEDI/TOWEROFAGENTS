@@ -7,6 +7,12 @@ from agents.platform.policy_guardian import PolicyGuardianAgent
 from agents.platform.rag_retriever import RAGRetrieverAgent
 from agents.platform.workflow_router import WorkflowRouterAgent
 from agents.sales.lead_qualifier import LeadQualifierAgent
+from agents.vendor.compliance_agent import ComplianceAgent
+from agents.vendor.finance_agent import FinanceAgent
+from agents.vendor.legal_agent import LegalAgent
+from agents.vendor.procurement_agent import ProcurementAgent
+from agents.vendor.security_agent import SecurityAgent
+from agents.vendor.vendor_controller import VendorControllerAgent
 from models.schemas import AgentDescriptor
 
 AGENT_TYPES = (
@@ -19,6 +25,12 @@ AGENT_TYPES = (
     InterviewPlannerAgent,
     LeadQualifierAgent,
     EngineeringReviewerAgent,
+    ProcurementAgent,
+    LegalAgent,
+    SecurityAgent,
+    FinanceAgent,
+    ComplianceAgent,
+    VendorControllerAgent,
 )
 
 # slug -> agent class; used by the executor to instantiate with a provider.

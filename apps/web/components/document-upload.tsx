@@ -20,6 +20,10 @@ const DOC_TYPES: { value: DocumentType; label: string }[] = [
   { value: "policy", label: "Hiring policy" },
   { value: "crm", label: "CRM notes" },
   { value: "code", label: "Code" },
+  { value: "vendor_profile", label: "Vendor profile" },
+  { value: "contract", label: "Contract" },
+  { value: "security_documentation", label: "Security documentation" },
+  { value: "pricing", label: "Pricing" },
   { value: "other", label: "Other" },
 ];
 

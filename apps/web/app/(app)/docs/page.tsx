@@ -199,7 +199,7 @@ export default function DocsPage() {
               </p>
             </div>
             <ol className="manual-steps">
-              <li>Open the workflow's dedicated Band room, or the shared default ATower room.</li>
+              <li>Open the workflow&apos;s dedicated Band room, or the shared default ATower room.</li>
               <li>Confirm the coordinator and specialists are participants.</li>
               <li>Mention agents with their full handle, including the user namespace.</li>
               <li>Never paste credentials, resumes, or private docs into public rooms.</li>

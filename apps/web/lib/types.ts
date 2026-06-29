@@ -25,7 +25,17 @@ export interface Workflow {
   created_at: string;
 }
 
-export type DocumentType = "resume" | "jd" | "policy" | "crm" | "code" | "other";
+export type DocumentType =
+  | "resume"
+  | "jd"
+  | "policy"
+  | "crm"
+  | "code"
+  | "vendor_profile"
+  | "contract"
+  | "security_documentation"
+  | "pricing"
+  | "other";
 
 export interface DocumentRead {
   id: string;
@@ -62,6 +72,29 @@ export interface WorkflowReviewRead {
   reviewed_at: string;
 }
 
+export interface DecisionPacketFinding {
+  agent_name: string;
+  finding_type: string;
+  severity: string;
+  title: string;
+  content: string;
+  evidence_chunk_ids: string[];
+  confidence: number;
+}
+
+export interface DecisionPacket {
+  recommendation: "approve" | "reject" | "conditional_approval" | "needs_review";
+  executive_summary: string;
+  evidence_chunk_ids: string[];
+  agent_findings: DecisionPacketFinding[];
+  risks: string[];
+  missing_information: string[];
+  disagreements: string[];
+  next_actions: string[];
+  human_approval_required: boolean;
+  audit_trail: Record<string, unknown>;
+}
+
 export interface WorkflowReport {
   id: string;
   workflow_id: string;
@@ -87,6 +120,7 @@ export interface WorkflowReport {
     agents_ran?: string[];
     agents_skipped?: string[];
     any_mock?: boolean;
+    decision_packet?: DecisionPacket;
     [key: string]: unknown;
   };
 }

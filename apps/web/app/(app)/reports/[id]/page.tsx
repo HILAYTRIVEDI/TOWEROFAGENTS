@@ -66,6 +66,7 @@ export default async function ReportPage({
       ) : null}
 
       <ReportReviewPanel
+        decisionPacket={report.report_payload?.decision_packet}
         initialStatus={report.review_status}
         requiresHumanReview={report.requires_human_review}
         reviewedAt={report.reviewed_at}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ApiError, submitReview } from "@/lib/api";
-import type { ReviewStatus } from "@/lib/types";
+import type { DecisionPacket, ReviewStatus } from "@/lib/types";
 
 interface Props {
   workflowId: string;
@@ -12,6 +12,7 @@ interface Props {
   initialStatus: ReviewStatus | null;
   reviewerNote: string | null;
   reviewedAt: string | null;
+  decisionPacket?: DecisionPacket;
 }
 
 function reviewErrorMessage(cause: unknown): string {
@@ -36,6 +37,7 @@ export function ReportReviewPanel({
   initialStatus,
   reviewerNote,
   reviewedAt,
+  decisionPacket,
 }: Props) {
   const router = useRouter();
   const [note, setNote] = useState("");
@@ -46,10 +48,6 @@ export function ReportReviewPanel({
   // We derive display from the props coming from the server after refresh.
   const isResolved =
     initialStatus === "approved" || initialStatus === "rejected";
-
-  if (!requiresHumanReview) {
-    return null;
-  }
 
   async function handleDecision(decision: "approve" | "reject") {
     setError(null);
@@ -63,92 +61,158 @@ export function ReportReviewPanel({
     }
   }
 
+  const packetCard = decisionPacket ? (
+    <article className="detail-card" style={{ marginBottom: "24px" }}>
+      <p className="eyebrow">Vendor decision packet</p>
+      <p style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        <span className={`status-badge status-${decisionPacket.recommendation}`}>
+          {decisionPacket.recommendation.replaceAll("_", " ")}
+        </span>
+        {decisionPacket.human_approval_required ? (
+          <span className="status-badge status-awaiting_review">
+            Human approval required
+          </span>
+        ) : null}
+      </p>
+      <p className="workflow-row-content" style={{ marginTop: "0.75rem" }}>
+        {decisionPacket.executive_summary}
+      </p>
+      <section className="detail-grid" style={{ marginTop: "1rem", marginBottom: 0 }}>
+        <DecisionPacketList title="Risks" values={decisionPacket.risks} />
+        <DecisionPacketList
+          title="Missing information"
+          values={decisionPacket.missing_information}
+        />
+        <DecisionPacketList
+          title="Disagreements"
+          values={decisionPacket.disagreements}
+        />
+        <DecisionPacketList title="Next actions" values={decisionPacket.next_actions} />
+      </section>
+    </article>
+  ) : null;
+
+  if (!requiresHumanReview) {
+    return packetCard;
+  }
+
   if (isResolved) {
     return (
-      <article className="detail-card" style={{ marginBottom: "24px" }}>
-        <p className="eyebrow">Human review</p>
-        <p>
-          <span
-            className={`status-badge status-${initialStatus}`}
-            role="status"
-          >
-            {initialStatus === "approved" ? "Approved" : "Rejected"}
-          </span>
-        </p>
-        {reviewerNote ? (
-          <p className="workflow-row-content" style={{ marginTop: "0.75rem" }}>
-            {reviewerNote}
+      <>
+        {packetCard}
+        <article className="detail-card" style={{ marginBottom: "24px" }}>
+          <p className="eyebrow">Human review</p>
+          <p>
+            <span
+              className={`status-badge status-${initialStatus}`}
+              role="status"
+            >
+              {initialStatus === "approved" ? "Approved" : "Rejected"}
+            </span>
           </p>
-        ) : null}
-        {reviewedAt ? (
-          <p className="workflow-row-meta" style={{ marginTop: "0.5rem" }}>
-            Reviewed {new Date(reviewedAt).toLocaleString()}
-          </p>
-        ) : null}
-      </article>
+          {reviewerNote ? (
+            <p className="workflow-row-content" style={{ marginTop: "0.75rem" }}>
+              {reviewerNote}
+            </p>
+          ) : null}
+          {reviewedAt ? (
+            <p className="workflow-row-meta" style={{ marginTop: "0.5rem" }}>
+              Reviewed {new Date(reviewedAt).toLocaleString()}
+            </p>
+          ) : null}
+        </article>
+      </>
     );
   }
 
   return (
-    <article className="detail-card" style={{ marginBottom: "24px" }}>
-      <p className="eyebrow">Human review</p>
-      <p className="workflow-row-meta" style={{ marginBottom: "1rem" }}>
-        This report requires a qualified reviewer before any action is taken.
-      </p>
-
-      {error ? (
-        <p className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
-          {error}
+    <>
+      {packetCard}
+      <article className="detail-card" style={{ marginBottom: "24px" }}>
+        <p className="eyebrow">Human review</p>
+        <p className="workflow-row-meta" style={{ marginBottom: "1rem" }}>
+          This report requires a qualified reviewer before any action is taken.
         </p>
-      ) : null}
 
-      <label
-        style={{
-          display: "grid",
-          gap: "8px",
-          color: "var(--green-dark)",
-          fontWeight: 750,
-          marginBottom: "1rem",
-        }}
-      >
-        Note (optional, max 2000 characters)
-        <textarea
-          disabled={submitting}
-          maxLength={2000}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Add a reviewer note…"
-          rows={3}
+        {error ? (
+          <p className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
+            {error}
+          </p>
+        ) : null}
+
+        <label
           style={{
-            width: "100%",
-            padding: "10px 12px",
-            background: "white",
-            border: "1px solid var(--line)",
-            borderRadius: "8px",
-            fontWeight: 400,
-            resize: "vertical",
+            display: "grid",
+            gap: "8px",
+            color: "var(--green-dark)",
+            fontWeight: 750,
+            marginBottom: "1rem",
           }}
-          value={note}
-        />
-      </label>
+        >
+          Note (optional, max 2000 characters)
+          <textarea
+            disabled={submitting}
+            maxLength={2000}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a reviewer note…"
+            rows={3}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              background: "white",
+              border: "1px solid var(--line)",
+              borderRadius: "8px",
+              fontWeight: 400,
+              resize: "vertical",
+            }}
+            value={note}
+          />
+        </label>
 
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        <button
-          className="button primary"
-          disabled={submitting}
-          onClick={() => void handleDecision("approve")}
-          type="button"
-        >
-          {submitting ? "Submitting…" : "Approve"}
-        </button>
-        <button
-          className="button danger"
-          disabled={submitting}
-          onClick={() => void handleDecision("reject")}
-          type="button"
-        >
-          {submitting ? "Submitting…" : "Reject"}
-        </button>
-      </div>
-    </article>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <button
+            className="button primary"
+            disabled={submitting}
+            onClick={() => void handleDecision("approve")}
+            type="button"
+          >
+            {submitting ? "Submitting…" : "Approve"}
+          </button>
+          <button
+            className="button danger"
+            disabled={submitting}
+            onClick={() => void handleDecision("reject")}
+            type="button"
+          >
+            {submitting ? "Submitting…" : "Reject"}
+          </button>
+        </div>
+      </article>
+    </>
+  );
+}
+
+function DecisionPacketList({
+  title,
+  values,
+}: {
+  title: string;
+  values: string[];
+}) {
+  return (
+    <div>
+      <p className="eyebrow">{title}</p>
+      {values.length > 0 ? (
+        <ul className="workflow-list">
+          {values.map((value, index) => (
+            <li className="workflow-row" key={index}>
+              {value}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="notice">None reported.</p>
+      )}
+    </div>
   );
 }

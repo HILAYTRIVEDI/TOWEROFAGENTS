@@ -8,7 +8,7 @@
     "build": "pnpm --filter @tower/web build",
     "lint": "pnpm --filter @tower/web lint",
     "typecheck": "pnpm --filter @tower/web typecheck",
-    "test:api": "python -m pytest apps/api/tests"
+    "test:api": "python3 -m pytest apps/api/tests"
   },
   "pnpm": {
     "overrides": {

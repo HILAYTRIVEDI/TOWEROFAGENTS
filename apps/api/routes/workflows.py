@@ -45,6 +45,10 @@ logger = logging.getLogger(__name__)
 _TARGETED_CONTEXT_QUERIES = {
     "resume": "Resume evidence: candidate work history, skills, projects, experience, education, and qualifications.",
     "jd": "Job description evidence: role requirements, responsibilities, required skills, preferred qualifications, and evaluation criteria.",
+    "contract": "contract terms liability indemnity termination IP ownership",
+    "security_documentation": "data security certifications SOC 2 ISO 27001 data residency breach",
+    "pricing": "pricing total cost payment terms recurring fees discounts",
+    "vendor_profile": "vendor company profile business need services provided references",
 }
 
 
@@ -87,6 +91,12 @@ async def _retrieve_workflow_context(
         queries.append(f"{base_query}\n{_TARGETED_CONTEXT_QUERIES['resume']}")
     if artifact_types & {"jd", "job_description"}:
         queries.append(f"{base_query}\n{_TARGETED_CONTEXT_QUERIES['jd']}")
+    queued_queries = set(queries)
+    for doc_type in sorted(artifact_types & _TARGETED_CONTEXT_QUERIES.keys()):
+        query = f"{base_query}\n{_TARGETED_CONTEXT_QUERIES[doc_type]}"
+        if query not in queued_queries:
+            queries.append(query)
+            queued_queries.add(query)
 
     chunks_by_key: dict[str, dict] = {}
     for query in queries:

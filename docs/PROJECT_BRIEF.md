@@ -6,13 +6,10 @@ ATower Of Agents is a CRM/HRMS-like operating system for AI agents. An operator 
 
 ## MVP
 
-The deep workflow is HR Candidate Screening:
+Deep workflows:
 
-1. Upload resume, job description, and hiring policy.
-2. Create a workflow and Band room.
-3. Index artifacts in Supabase pgvector.
-4. Run matching, fairness, interview, policy, and final-decision agents.
-5. Display findings, citations, collaboration messages, and human-review status.
+- HR Candidate Screening: upload resume, job description, and hiring policy; index artifacts; run matching, fairness, interview, policy, and final-decision agents; display findings, citations, collaboration messages, and human-review status.
+- Vendor Onboarding Review: upload vendor profile, contract, security documentation, and pricing; run procurement, legal, security, finance, compliance, and controller agents; display `report_payload.decision_packet` for human approval.
 
 Breadth templates:
 
@@ -31,4 +28,3 @@ This phase establishes repository rules, architecture and API contracts, typed s
 - Database migrations define the required tenant-scoped records and vector search.
 - Provider and Band mocks are explicit and replaceable.
 - Placeholder UI routes communicate what is and is not implemented.
-

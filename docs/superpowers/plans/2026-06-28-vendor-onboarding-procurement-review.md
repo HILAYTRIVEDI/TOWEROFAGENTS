@@ -1170,11 +1170,11 @@ git commit -m "feat(workflows): register vendor agents and add vendor-onboarding
 - Produces: `_TARGETED_CONTEXT_QUERIES` gains vendor doc-type keys: `"contract"`, `"security_documentation"`, `"pricing"`, `"vendor_profile"`, each mapping to a short retrieval query string. `_retrieve_workflow_context` adds the matching targeted query when those artifact doc-types are present (mirroring the existing resume/jd behavior).
 - Consumes: existing retrieval plumbing in `routes/workflows.py`.
 
-- [ ] **Step 1: Read the current shape**
+- [x] **Step 1: Read the current shape**
 
 Run: `cd apps/api && python -m pytest tests/ -q` first to confirm green baseline, then open `apps/api/routes/workflows.py` lines 1–140 to see `_TARGETED_CONTEXT_QUERIES` and how `_retrieve_workflow_context` consults artifact types.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Append to `apps/api/tests/test_vendor_workflow.py`:
 
@@ -1187,12 +1187,12 @@ def test_vendor_targeted_context_queries_present():
         assert _TARGETED_CONTEXT_QUERIES[key].strip()
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_workflow.py -k targeted -v`
 Expected: FAIL — `KeyError` / `AssertionError` (keys absent).
 
-- [ ] **Step 4: Add the vendor queries**
+- [x] **Step 4: Add the vendor queries**
 
 In `apps/api/routes/workflows.py`, extend `_TARGETED_CONTEXT_QUERIES` (keep the existing resume/jd entries untouched):
 
@@ -1208,17 +1208,19 @@ _TARGETED_CONTEXT_QUERIES = {
 
 Then, in `_retrieve_workflow_context`, where resume/jd artifact types trigger targeted queries, add an additive branch that appends the targeted query for any artifact doc-type present in `_TARGETED_CONTEXT_QUERIES` (do not remove the existing resume/jd special-casing). The smallest clean change: after the existing targeted-query block, iterate artifact doc-types and append `_TARGETED_CONTEXT_QUERIES[doc_type]` when present and not already queued. Match the existing code's de-duplication style.
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd apps/api && python -m pytest tests/test_vendor_workflow.py -k targeted -v`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/routes/workflows.py apps/api/tests/test_vendor_workflow.py
 git commit -m "feat(api): add vendor doc-type targeted context retrieval queries"
 ```
+
+> ✅ **COMPLETE** — targeted query keys and queueing behavior are present in `routes/workflows.py`; focused tests are included in `test_vendor_workflow.py`.
 
 ---
 
@@ -1395,25 +1397,29 @@ git commit -m "feat(web): add vendor template option and decision-packet display
 **Files:**
 - Modify: relevant docs (e.g., `apps/api/AGENTS.md` or the project README workflow list) — only where contracts/limitations changed.
 
-- [ ] **Step 1: Run the full API test suite**
+- [x] **Step 1: Run the full API test suite**
 
 Run: `cd apps/api && python -m pytest tests/ -v`
 Expected: all PASS, including `test_final_decision.py` (HR untouched), `test_vendor_agents.py`, `test_decision_packet.py`, `test_vendor_workflow.py`.
 
-- [ ] **Step 2: Run repo-level verification (if defined)**
+- [x] **Step 2: Run repo-level verification (if defined)**
 
 Run: `pnpm test:api` (root) / `pnpm typecheck` / `pnpm build`
 Expected: green. (Use whichever scripts exist in root `package.json`; do not invent new ones.)
+
+> ✅ `pnpm test:api`, `pnpm typecheck`, and `pnpm build` pass. `pnpm test:api` now uses `python3` because `python` is not available on this machine's PATH.
 
 - [ ] **Step 3: Manual demo smoke**
 
 With the API and web running and the seed applied: create a workflow from the "Vendor Onboarding Review" template, run it (mock provider is fine), and confirm the report view shows a decision packet with `recommendation = needs_review` (mock) or a parsed value (real provider), risks including the missing-security-doc gap, and "Human approval required". Confirm the HR workflow still runs and shows its usual report with no decision-packet section.
 
-- [ ] **Step 4: Update docs**
+> Not run in this pass: no local API or web server was listening on `127.0.0.1:8000` or `127.0.0.1:3000`.
+
+- [x] **Step 4: Update docs**
 
 Update the workflow/template list in project docs to mention `vendor-onboarding-review`, note that the decision packet lives at `report_payload.decision_packet`, and state the current limitation: recommendation parsing relies on the controller's `RECOMMENDATION:` line and falls back to `needs_review` for mock/absent controllers. Document that the `DecisionPacket` + `build_decision_packet` are the reusable template for future enterprise workflows.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
